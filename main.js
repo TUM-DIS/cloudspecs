@@ -57,6 +57,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         // initialize R repl
         await rmodule.makeRRepl(r_editor, out, 'r-output', submit);
+        await recreateTable();
         submit.click();
     } catch (error) {
         console.error("Failed to load R module", error);
