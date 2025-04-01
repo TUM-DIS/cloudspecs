@@ -47,8 +47,8 @@ const recreatePlot = async () => {
 export const onDataUpdate = async (table) => {
   await webR.objs.globalEnv.bind('df', table.rows);
   console.log('bound new table to R:' );
-  await webR.evalR('print(df)');
-  // await recreatePlot();
+  await webR.evalR('print(head(df))');
+  await recreatePlot();
 }
 
 export const makeRRepl = (editor, graphic, graphicid, btn) => {

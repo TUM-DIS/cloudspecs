@@ -1047,11 +1047,12 @@ html.dark .dt-container .dt-paging .dt-paging-button:active {
 
 
 #r-eval {
-  margin-top: 1em;
+  margin: 0 0 1em 0;
+  padding-bottom: 1em;
+  border-bottom: 1px solid #ccc;
 }
 
 #r-status {
-  border-top: 1px solid #ccc;
   padding: .5em 0;
   margin: .1em 0;
 }
@@ -1062,4 +1063,31 @@ html.dark .dt-container .dt-paging .dt-paging-button:active {
 }
 
 #r-output {
+}
+
+.tab-links {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tab-links li {
+  display: inline-block;
+  margin-right: 2px;
+  border-top: 1px solid #ccc;
+  border-left: 1px solid #ccc;
+  border-right: 1px solid #ccc;
+  background-color: #eee;
+}
+
+.tab-links li.ui-state-active {
+  background-color: #fff;
+  font-weight: bold;
+}
+
+.tab-links a {
+  display: block;
+  padding: .5em 1em;
+  text-decoration: none;
+  color: #000;
 }

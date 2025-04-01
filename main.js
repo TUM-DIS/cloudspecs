@@ -27,17 +27,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     try {
         // prepare output area
         let reval = document.getElementById("r-eval");
+        // append editor and graphic output area
+        reval.innerHTML += '<textarea id="r-editor" class="form-control" rows="10" placeholder="Enter R code here"></textarea>';
+        reval.innerHTML += '<button id="execute-r">Run</button>';
         reval.innerHTML += '<div id="r-status" class="output">Loading R...</div>';
+        reval.innerHTML += '<div id="r-output" class="output"></div>';
         // load module
         rmodule = await import('./static/plot.js')
 
         await rmodule.initializeR('r-status')
         console.log("R module loaded successfully");
 
-        // append editor and graphic output area
-        reval.innerHTML += '<textarea id="r-editor" class="form-control" rows="10" placeholder="Enter R code here"></textarea>';
-        reval.innerHTML += '<button id="execute-r">Run</button>';
-        reval.innerHTML += '<div id="r-output" class="output"></div>';
 
         let editor = document.getElementById("r-editor");
         let out = document.getElementById("r-output");
@@ -150,6 +150,13 @@ async function createTable() {
                     filename: 'ec2_instances_data',
                     text: 'Excel'
                 },
+                // {
+                //     text: 'GGPlot',
+                //     className: 'btn btn-primary',
+                //     action: function (e, dt, node, config) {
+                //         $('#r-eval').toggle();
+                //     }
+                // },
                 {
                     text: 'DuckDB [Whole Database]',
                     action: function (e, dt, node, config) {
@@ -178,6 +185,8 @@ $(document).ready(async function () {
         $("#error-msg").text("");
         recreateTable();
     });
+
+    $("#tabs").tabs();
 
     document.addEventListener('keydown', async function (event) {
         if (event.ctrlKey && event.key == "Enter") {
