@@ -124,13 +124,8 @@ async function createTable() {
         });
 
         // Set table in R context
-        try {
-            if (rmodule) {
-                console.log("Setting table in R context", result);
-                rmodule.onDataUpdate(result);
-            }
-        } catch (error) {
-            console.error("Failed to set table in R context", error);
+        if (rmodule) {
+            rmodule.onDataUpdate(result);
         }
 
         return $('#ec2-instances').DataTable({

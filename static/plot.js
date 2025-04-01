@@ -45,14 +45,19 @@ const recreatePlot = async () => {
 }
 
 export const onDataUpdate = async (table) => {
-  await webR.objs.globalEnv.bind('df', table.rows);
-  console.log('bound new table to R:' );
-  await webR.evalR('print(head(df))');
-  await recreatePlot();
+  try {
+    await webR.objs.globalEnv.bind('df', table.rows);
+    console.log('bound new table to R:' );
+    await webR.evalR('print(head(df))');
+    await recreatePlot();
+  } catch (e) {
+    log("Error updating data: " + e);
+    console.log("failed to re-bind or re-draw data", e);
+  }
 }
 
 export const makeRRepl = (editor, graphic, graphicid, btn) => {
-  editor.getDoc().setValue(`### the table above is bound to the variable 'df'
+  editor.getDoc().setValue(`### the current table is bound to the variable 'df'
 library(plotly)
 library(ggplot2)
 theme_set(theme_bw(15))
