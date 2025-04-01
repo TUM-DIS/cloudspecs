@@ -28,15 +28,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
-  <script type="module" crossorigin src="/EC2Bench/assets/index.99440c5a.js"></script>
+  <script type="module" crossorigin src="/EC2Bench/assets/index.23315bb1.js"></script>
   <link rel="stylesheet" href="/EC2Bench/assets/index.36fbfbbc.css">
 </head>
 
 <body>
   <div id="app">
     <div>
-      <textarea id="sql-editor">SELECT name AS Name, on_demand_price AS "On-Demand Price [$/h]", vcpu AS vCPUs, memory AS "Memory [GB]", round(singlecore_spec_int_base/on_demand_price, 2) as "SPEC/$" FROM bench.instances 
-        where "SPEC/$" > 0 order by "SPEC/$" desc;</textarea>
+      <textarea id="sql-editor">SELECT name AS Name, on_demand_price AS "On-Demand Price [$/h]", vcpu AS vCPUs, memory AS "Memory [GB]", round(singlecore_spec_int_base/on_demand_price, 2) as "SPEC/$" FROM bench.instances where "SPEC/$" > 0 order by "SPEC/$" desc;</textarea>
       <input type="submit" id="load-table" name="load-table" value="Execute">
     </div>
     <div id="error-msg"></div>
