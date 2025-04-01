@@ -19,7 +19,7 @@ thead {
   text-align: right !important;
 }
 
-#load-table {
+#load-table, #execute-r {
   width: 100%;
   margin-top: 10px;
   padding: 10px 15px;
@@ -1043,4 +1043,23 @@ html.dark .dt-container .dt-paging .dt-paging-button:active {
 
 *[dir=rtl] div.dt-container div.dt-search input {
   margin: 0 3px 0 0;
+}
+
+
+#r-eval {
+  margin-top: 1em;
+}
+
+#r-status {
+  border-top: 1px solid #ccc;
+  padding: .5em 0;
+  margin: .1em 0;
+}
+
+#r-status::before {
+  content: "R Status: ";
+  font-weight: bold;
+}
+
+#r-output {
 }

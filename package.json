@@ -27,6 +27,8 @@
     "@codemirror/view": "^0.19.47",
     "@duckdb/duckdb-wasm": "^1.29.0",
     "datatables.net-dt": "^2.2.2",
-    "datatables.net-responsive-dt": "^3.0.4"
+    "datatables.net-responsive-dt": "^3.0.4",
+    "plotly.js-dist": "^3.0.1",
+    "webr": "^0.4.2"
   }
 }

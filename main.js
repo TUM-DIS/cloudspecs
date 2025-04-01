@@ -14,13 +14,54 @@ import dbfile from './static/benchmark.duckdb?url';
 
 // Text Editor with Syntax Highlighting
 let editor;
-document.addEventListener("DOMContentLoaded", function () {
+let rmodule;
+document.addEventListener("DOMContentLoaded", async function () {
     editor = CodeMirror.fromTextArea(document.getElementById("sql-editor"), {
         mode: "text/x-sql", // SQL mode
         lineNumbers: true, // Show line numbers
         matchBrackets: true, // Highlight matching brackets
         autoCloseBrackets: true // Auto-close brackets
     });
+
+    // await import other js file lazily
+    try {
+        // prepare output area
+        let reval = document.getElementById("r-eval");
+        reval.innerHTML += '<div id="r-status" class="output">Loading R...</div>';
+        // load module
+        rmodule = await import('./static/plot.js')
+
+        await rmodule.initializeR('r-status')
+        console.log("R module loaded successfully");
+
+        // append editor and graphic output area
+        reval.innerHTML += '<textarea id="r-editor" class="form-control" rows="10" placeholder="Enter R code here"></textarea>';
+        reval.innerHTML += '<button id="execute-r">Run</button>';
+        reval.innerHTML += '<div id="r-output" class="output"></div>';
+
+        let editor = document.getElementById("r-editor");
+        let out = document.getElementById("r-output");
+        let submit = document.getElementById("execute-r");
+        // code mirror editor
+        let r_editor = CodeMirror.fromTextArea(editor, {
+            mode: "text/x-rsrc", // R mode
+            lineNumbers: true, // Show line numbers
+            matchBrackets: true, // Highlight matching brackets
+            autoCloseBrackets: true, // Auto-close brackets
+            extraKeys: {
+                "Ctrl-Enter": function (cm) {
+                    submit.click();
+                }
+            }
+        });
+
+        // initialize R repl
+        await rmodule.makeRRepl(r_editor, out, 'r-output', submit);
+        submit.click();
+    } catch (error) {
+        console.error("Failed to load R module", error);
+        alert("Failed to load R module");
+    }
 });
 
 const MANUAL_BUNDLES = {
@@ -67,6 +108,7 @@ async function createTable() {
             return { error: error.toString()?.split("\n") }
         });
 
+
     if ("error" in result) {
         $("#error-msg").text(result.error);
         return $('#ec2-instances').DataTable({});
@@ -79,6 +121,16 @@ async function createTable() {
         result.columns.forEach(key => {
             theadRow.append(`<th>${key}</th>`);
         });
+
+        // Set table in R context
+        try {
+            if (rmodule) {
+                console.log("Setting table in R context", result);
+                rmodule.onDataUpdate(result);
+            }
+        } catch (error) {
+            console.error("Failed to set table in R context", error);
+        }
 
         return $('#ec2-instances').DataTable({
             data: result.rows,
@@ -106,29 +158,31 @@ async function createTable() {
                 }]
         });
     }
+
 }
 
 // Render initial table with our sample query
 let dataTables = await createTable();
 
+const recreateTable = async () => {
+    dataTables.clear();
+    dataTables.destroy();
+    $('#ec2-instances thead').empty().append("<tr></tr>");
+    dataTables = await createTable();
+}
+
 $(document).ready(async function () {
     $("#load-table").on("click", async function (e) {
         e.preventDefault();
         $("#error-msg").text("");
-        dataTables.clear();
-        dataTables.destroy();
-        $('#ec2-instances thead').empty().append("<tr></tr>");
-        dataTables = await createTable();
+        recreateTable();
     });
 
     document.addEventListener('keydown', async function (event) {
         if (event.ctrlKey && event.key == "Enter") {
             //e.preventDefault();
             $("#error-msg").text("");
-            dataTables.clear();
-            dataTables.destroy();
-            $('#ec2-instances thead').empty().append("<tr></tr>");
-            dataTables = await createTable();
+            recreateTable();
         }
     });
 });

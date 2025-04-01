@@ -28,18 +28,20 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/r/r.min.js" integrity="sha512-Ag6wqGwcIwkgp0g8jSpAFLMHwtbGBqhfJh71N00FXDmSIFJix8e9CEt1kCVatfSwIwHCqg08mYVIcREiPIjxFg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 
 <body>
   <div id="app">
     <div>
-      <textarea id="sql-editor">SELECT name AS Name, on_demand_price AS "On-Demand Price [$/h]", vcpu AS vCPUs, memory AS "Memory [GB]", round(singlecore_spec_int_base/on_demand_price, 2) as "SPEC/$" FROM bench.instances 
+      <textarea id="sql-editor" class="code-editor">SELECT name AS Name, on_demand_price AS "On-Demand Price", vcpu AS vCPUs, memory AS "Memory [GB]", round(singlecore_spec_int_base/on_demand_price, 2) as "SPEC/$" FROM bench.instances
         where "SPEC/$" > 0 order by "SPEC/$" desc;</textarea>
       <input type="submit" id="load-table" name="load-table" value="Execute">
     </div>
     <div id="error-msg"></div>
     <table id="ec2-instances" class="display">
     </table>
+    <div id="r-eval"></div>
   </div>
   <script type="module" src="/main.js"></script>
 </body>
