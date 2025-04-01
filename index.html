@@ -34,8 +34,7 @@
 <body>
   <div id="app">
     <div>
-      <textarea id="sql-editor" class="code-editor">SELECT name AS Name, on_demand_price AS "On-Demand Price", vcpu AS vCPUs, memory AS "Memory [GB]", round(singlecore_spec_int_base/on_demand_price, 2) as "SPEC/$" FROM bench.instances
-        where "SPEC/$" > 0 order by "SPEC/$" desc;</textarea>
+      <textarea id="sql-editor">SELECT name AS Name, on_demand_price AS "On-Demand Price", vcpu AS vCPUs, memory AS "Memory", round(singlecore_spec_int_base/on_demand_price, 2) as "SPEC/$" FROM bench.instances where "SPEC/$" > 0 order by "SPEC/$" desc;</textarea>
       <input type="submit" id="load-table" name="load-table" value="Execute">
     </div>
     <div id="error-msg"></div>
