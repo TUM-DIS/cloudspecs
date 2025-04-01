@@ -55,10 +55,11 @@ export const makeRRepl = (editor, graphic, graphicid, btn) => {
   editor.getDoc().setValue(`### the table above is bound to the variable 'df'
 library(plotly)
 library(ggplot2)
+theme_set(theme_bw(15))
+
 df[['family']] <- sapply(strsplit(df[['Name']], '\\\\.'), function(x) x[1])
 p <- ggplot(df, aes(x = .data[['SPEC..']], y = On.Demand.Price, colour = family)) +
   expand_limits(y = 0, x = 0) +
-  theme_bw() +
   geom_point()
 
 plotly_json(p, pretty = FALSE)`)
