@@ -18,12 +18,9 @@ const log = async(msg) => {
 export const initializeR = async (logid) => {
   webR = new WebR();
   await webR.init();
-
   rContext = {logid: logid};
-
   await loadRPackages();
   log("R is ready to go!");
-
 }
 
 const recreatePlot = async () => {
@@ -59,7 +56,8 @@ export const makeRRepl = (editor, graphic, graphicid, btn) => {
 library(plotly)
 library(ggplot2)
 df[['family']] <- sapply(strsplit(df[['Name']], '\\\\.'), function(x) x[1])
-p <- ggplot(df, aes(x = .data[['On.Demand.Price']], y = .data[['SPEC..']], colour = family)) +
+p <- ggplot(df, aes(x = .data[['SPEC..']], y = On.Demand.Price, colour = family)) +
+  expand_limits(y = 0, x = 0) +
   theme_bw() +
   geom_point()
 
