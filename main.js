@@ -93,6 +93,7 @@ const arrayBuffer = new Uint8Array(await (await fetch(dbfile)).arrayBuffer());
 await db.registerFileBuffer("benchmark.duckdb", new Uint8Array(arrayBuffer));
 const conn = await db.connect();
 await conn.send("ATTACH 'benchmark.duckdb' AS bench;");
+await conn.send("USE bench;");
 
 async function createTable() {
     let query = editor.getValue();
