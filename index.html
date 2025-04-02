@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/r/r.min.js"></script>
-  <script type="module" crossorigin src="/EC2Bench/assets/index.749fd56d.js"></script>
+  <script type="module" crossorigin src="/EC2Bench/assets/index.6784df69.js"></script>
   <link rel="stylesheet" href="/EC2Bench/assets/index.742e172d.css">
 </head>
 
@@ -42,7 +42,7 @@
         <li><a href="#r-eval">GGPlot</a></li>
       </ul>
       <div id="sql-tab">
-        <textarea id="sql-editor">SELECT name AS Name, on_demand_price AS "On-Demand Price", vcpu AS vCPUs, memory AS "Memory", round(singlecore_spec_int_base/on_demand_price, 2) as "SPEC/$" FROM bench.instances where "SPEC/$" > 0 order by "SPEC/$" desc;</textarea>
+        <textarea id="sql-editor">SELECT name AS Name, on_demand_price AS "On-Demand Price", vcpu AS vCPUs, memory AS "Memory", round(singlecore_spec_int_base/on_demand_price, 2) as "SPEC/$" FROM aws where "SPEC/$" > 0 order by "SPEC/$" desc;</textarea>
         <input type="submit" id="load-table" name="load-table" value="Execute">
         <div id="error-msg"></div>
       </div>
