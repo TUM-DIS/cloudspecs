@@ -34,22 +34,21 @@
 
 <body>
   <div id="app">
-    <div id="tabs">
+    <!--
       <ul class="tab-links">
         <li><a href="#sql-tab">SQL</a></li>
         <li><a href="#r-eval">GGPlot</a></li>
-      </ul>
+      </ul> -->
       <div id="sql-tab">
         <textarea id="sql-editor">SELECT * FROM aws;</textarea>
         <input type="submit" id="load-table" name="load-table" value="Execute [Ctrl+Enter]">
-        <div id="toast" class="toast">Link copied to clipboard!</div>
         <div id="error-msg"></div>
       </div>
       <div id="r-eval"></div>
-    </div> <!-- end tabs -->
-    <table id="ec2-instances" class="display">
-    </table>
-  </div>
+      <div id="table-wrapper">
+        <table id="ec2-instances" class="display"></table>
+      </div>
+  <div id="toast" class="toast">Link copied to clipboard!</div>
   <script type="module" src="/main.js"></script>
 </body>
 

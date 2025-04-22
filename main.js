@@ -224,7 +224,7 @@ $(document).ready(async function () {
         recreateTable();
     });
 
-    $("#tabs").tabs();
+    // $("#tabs").tabs();
 
     document.addEventListener('keydown', async function (event) {
         if (event.ctrlKey && event.key == "Enter") {

@@ -15,6 +15,7 @@ table {
 #table-wrapper {
   max-width: 100%;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 th,
@@ -112,25 +113,6 @@ thead {
   --dt-html-background: rgb(33, 37, 41);
 }
 
-#r-eval {
-  margin: 0 0 1em 0;
-  padding-bottom: 1em;
-  border-bottom: 1px solid #ccc;
-}
-
-#r-status {
-  padding: .5em 0;
-  margin: .1em 0;
-}
-
-#r-status::before {
-  content: "R Status: ";
-  font-weight: bold;
-}
-
-#r-output {
-}
-
 .tab-links {
   list-style-type: none;
   padding: 0;
@@ -156,4 +138,44 @@ thead {
   padding: .5em 1em;
   text-decoration: none;
   color: #000;
+}
+
+
+#app {
+  display: grid;
+  max-width: 100%;
+  grid-template-areas:
+    "sql-editor viz"
+    "sql-table viz"
+    "sql-table viz";
+  grid-template-columns: 50% 50%;
+}
+
+#sql-tab {
+  grid-area: sql-editor;
+}
+
+#table-wrapper {
+  grid-area: sql-table;
+}
+
+
+#r-eval {
+  grid-area: viz;
+  margin: 0 0 1em 0;
+  padding-bottom: 1em;
+  border-bottom: 1px solid #ccc;
+}
+
+#r-status {
+  padding: .5em 0;
+  box-sizing: border-box;
+}
+
+#r-status::before {
+  content: "R Status: ";
+  font-weight: bold;
+}
+
+#r-output {
 }

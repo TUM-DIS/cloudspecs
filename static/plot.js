@@ -77,7 +77,7 @@ export const onDataUpdate = async (table) => {
 export const provideScreenWidth = async(elemid) => {
   try {
     let w = document.getElementById(elemid).clientWidth;
-    w = w == 0  ? window.innerWidth - 20 : w;
+    w = (w == 0  ? window.innerWidth : w) - 20 ;
     let h = window.innerHeight/2;
     await webR.objs.globalEnv.bind('output.width.inch', w/96);
     await webR.objs.globalEnv.bind('output.height.inch', h/96);
