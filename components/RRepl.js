@@ -36,6 +36,9 @@ export default class RRepl {
   }
 
   async #recreatePlot(code) {
+    if (!code) {
+      return { error: 'No code provided. Type some R code above!' };
+    }
     const svgstr = await this.#webR.evalRString(code);
     $(this.#outputSelector).html(svgstr);
     return { svg: svgstr };
