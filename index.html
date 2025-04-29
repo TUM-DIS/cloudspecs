@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Cloudspecs</title>
+  <link rel="icon" type="image/x-icon" href="static/cloudspec-logo.svg">
 
   <link rel="stylesheet" href="/style.css">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -30,12 +31,19 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/r/r.min.js"></script>
+
+  <!-- CSV Parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 
 <body>
   <div id="app" class="tableview">
+    <!-- <div id="header-container"> -->
       <header id="header-lhs" class="header-segment">
-        <span class="title">Cloudspecs</span>
+        <img id="logo" src="static/cloudspec-logo.svg" alt="Cloudspecs" />
+        <select id="sample-queries">
+          <option value="" disabled selected>Load query</option>
+        </select>
       </header>
       <header id="header-rhs" class="header-segment">
         <button class="btn btn-primary dt-button" id="toggle-viz-btn">&#9664; Visualize (R+ggplot)</button>
@@ -44,6 +52,8 @@
           <button class="btn btn-primary dt-button" id="share-btn">Share</button>
         </div>
       </header>
+    <!-- </div> -->
+    
     <!-- sql evaluation (editor + button) -->
     <main id="sql-eval">
       <textarea id="sql-editor"></textarea>

@@ -40,7 +40,7 @@ html {
   grid-template-rows: auto 1fr auto;
 }
 
-header {
+/*header {
   display: flex;
   align-items: center;
   padding: .5em .5em .5em .5em;
@@ -52,7 +52,7 @@ header .title {
   display: inline-block;
   font-size: 1.2em;
   font-weight: bold;
-}
+}*/
 
 footer {
   display: flex;
@@ -146,4 +146,18 @@ main {
   color: black;
   content: "|";
   margin-right: .5em;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  padding: .5em .5em .5em .5em;
+  background-color: var(--grey-bg);
+  border-bottom: 1px solid var(--grey-border)
+}
+
+/* Logo sizing */
+#logo {
+  height: 80%;
+  width: 10%;
 }

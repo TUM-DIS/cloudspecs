@@ -172,6 +172,41 @@ document.addEventListener('DOMContentLoaded', () => {
     state.setState({ viewsize: window.innerWidth });
   });
 
+  // parse sample queries
+  const csvUrl = 'static/sample-queries.csv';
+  $.get(csvUrl, (csvData) => {
+    const results = Papa.parse(csvData, {
+      header: true,
+      skipEmptyLines: true,
+    });
+    
+    const samplesTable = {};
+    results.data.forEach(row => {
+      const description = row["description"];
+      const sql_code = row["sql_code"];
+      const r_code = row["r_code"];
+      samplesTable[description] = { sql_code, r_code };
+    });
+
+    const $dropdown = $('#sample-queries');
+    for (const description in samplesTable) {
+      if (description) {
+        $dropdown.append(
+          $('<option></option>')
+            .attr('value', description)
+            .text(description)
+        );
+      }
+    }
+
+    $dropdown.on('change', () => {
+      const selectedDescription = $('#sample-queries :selected').val();
+      const data = samplesTable[selectedDescription];
+      if (data) {
+        state.setState({ sqlQuery: data.sql_code, rCode: data.r_code});
+      }});
+  });
+
   // grid resize drag handler
   app.resizeHandle = new ResizeHandle('.splitview', '#grid-resize', (pct) => {
     state.setState({ viewsize: window.innerWidth * pct } );
