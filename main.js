@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = samplesTable[selectedDescription];
     if (data) {
       state.setState({ sqlQuery: data.sql_code, rCode: data.r_code});
-      runQuery(); 
+      runQuery();
   }});
 
   // grid resize drag handler

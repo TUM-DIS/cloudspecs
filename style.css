@@ -153,8 +153,10 @@ header {
 
 /* Logo sizing */
 #logo {
-  height: 80%;
-  width: 10%;
+  height: 4.2em;
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-right: 1%;
 }
 
 .dropdown {
