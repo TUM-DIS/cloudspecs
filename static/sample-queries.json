@@ -1,6 +1,6 @@
 [
     {
-        "description": "Database Schema",
+        "description": "database schema",
         "sql_code": [
             "SELECT a.table_name, a.column_name as name, d.column_type as type, a.comment as description",
             "FROM duckdb_columns() a join (describe aws) d on d.column_name = a.column_name",
@@ -9,7 +9,7 @@
         "r_code": ""
     },
     {
-        "description": "SPEC per dollar",
+        "description": "cores per dollar",
         "sql_code": [
             "SELECT release_year, arch,",
             "    max(cores/price_hour) cores_per_usd,",
@@ -31,8 +31,13 @@
         ]
     },
     {
-        "description": "dummy2",
-        "sql_code": "select * from aws limit 20",
-        "r_code": "some other R code"
+        "description": "highest net bandwidth per dollar",
+        "sql_code": [
+            "select family, round(max(net_gbitps/price_hour), 2) net_gbitps_per_dollar",
+            "from aws",
+            "group by family",
+            "order by net_gbitps_per_dollar desc"
+        ],
+        "r_code": ""
     }
 ]
