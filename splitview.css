@@ -14,18 +14,20 @@
         cursor: ew-resize;
     }
 
-    .header-segment {
-        justify-content: space-between;
-    }
-
     .header-segment .title {
         display: inline-block;
         font-size: 1.2em;
         font-weight: bold;
     }
 
-    #header-lhs {grid-area: header-lhs;}
-    #header-rhs {grid-area: header-rhs;}
+    #header-lhs {
+        grid-area: header-lhs;
+        justify-content: flex-begin;
+    }
+    #header-rhs {
+        justify-content: space-between;
+        grid-area: header-rhs;
+    }
 
     #r-eval {
         grid-area: r-eval;
