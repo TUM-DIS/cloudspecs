@@ -31,9 +31,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/r/r.min.js"></script>
-
-  <!-- CSV Parsing -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 
 <body>
@@ -41,7 +38,7 @@
     <!-- <div id="header-container"> -->
       <header id="header-lhs" class="header-segment">
         <img id="logo" src="static/cloudspec-logo.svg" alt="Cloudspecs" />
-        <select id="sample-queries">
+        <select class="btn btn-primary dt-button" id="sample-queries">
           <option value="" disabled selected>Load query</option>
         </select>
       </header>
