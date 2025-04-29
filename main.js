@@ -23,24 +23,23 @@ const debounce = (callback, delay_ms) => {
 
 const app = {};
 ////////////////////////  SQL Editor  ///////////////////////
-document.addEventListener('DOMContentLoaded', async () => {
-  // Run query based on current state.sqlQuery
-  async function runQuery() {
-    state.setState({ sqlError: '' });
-    const query = state.getState().sqlQuery;
-    let result;
-    try {
-      result = await app.db.query(query);
-    } catch (err) {
-      result = { error: err.toString() };
-    }
-    if (result.error) {
-      state.setState({ result: { columns: [], rows: [], query }, sqlError: result.error });
-    } else {
-      state.setState({ result: { columns: result.columns, rows: result.rows, query }, sqlError: '' });
-    }
+// Run query based on current state.sqlQuery
+async function runQuery() {
+  state.setState({ sqlError: '' });
+  const query = state.getState().sqlQuery;
+  let result;
+  try {
+    result = await app.db.query(query);
+  } catch (err) {
+    result = { error: err.toString() };
   }
-
+  if (result.error) {
+    state.setState({ result: { columns: [], rows: [], query }, sqlError: result.error });
+  } else {
+    state.setState({ result: { columns: result.columns, rows: result.rows, query }, sqlError: '' });
+  }
+}
+document.addEventListener('DOMContentLoaded', async () => {
   // SQL Code Editor
   app.sqlEditor = new CodeEditor('#sql-editor', {
     mode: 'text/x-sql',
@@ -208,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = samplesTable[selectedDescription];
     if (data) {
       state.setState({ sqlQuery: data.sql_code, rCode: data.r_code});
+      (async () => await runQuery())(); // TODO: Better solution for this
   }});
 
   // grid resize drag handler
