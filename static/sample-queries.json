@@ -1,5 +1,14 @@
 [
     {
+        "description": "Database Schema",
+        "sql_code": [
+            "SELECT a.table_name, a.column_name as name, d.column_type as type, a.comment as description",
+            "FROM duckdb_columns() a join (describe aws) d on d.column_name = a.column_name",
+            "where a.table_name ilike 'aws'"
+        ],
+        "r_code": ""
+    },
+    {
         "description": "SPEC per dollar",
         "sql_code": [
             "SELECT release_year, arch,",
