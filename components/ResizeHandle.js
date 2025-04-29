@@ -1,5 +1,5 @@
-import '/splitview.css'
-import '/tableview.css'
+import './splitview.css'
+import './tableview.css'
 
 export default class ResizeHandle {
   #isResizing; #grid; #handle; #handlers; #callback; #curPct;

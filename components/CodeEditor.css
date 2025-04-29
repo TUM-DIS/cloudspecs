@@ -4,6 +4,7 @@
   height: 20vh;
   border: 1px solid #ccc;
   font-size: 14px;
+  font-family: 'Jetbrains Mono', monospace;
   line-height: 1.4;
   resize: vertical;
   /* Ensures text is properly aligned */
