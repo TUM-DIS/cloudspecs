@@ -1,10 +1,10 @@
-import './CodeEditor.css';
 import state from './state.js';
 
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/mode/sql/sql.js';
 import 'codemirror/mode/r/r.js';
+import './CodeEditor.css';
 
 /**
  * CodeEditor component wraps a CodeMirror v5 instance and syncs its content with central state

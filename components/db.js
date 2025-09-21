@@ -38,7 +38,7 @@ export default class DB {
     await conn.send("ATTACH 'cloudspecs.duckdb' AS specs;");
     await conn.send("USE specs;");
 
-    return new DB(db, conn)
+    return new DB(db, conn);
   }
 
   async query(q) {
