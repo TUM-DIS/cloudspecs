@@ -3,39 +3,13 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Cloudspecs</title>
+  <title>cloudspecs</title>
   <link id="favicon" rel="icon" type="image/svg+xml" href="static/logo/cloudspecs.svg">
-
-  <link rel="stylesheet" href="/style.css">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://cdn.datatables.net/2.0.2/css/dataTables.dataTables.min.css">
-  <!-- fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
 
-
-  <!-- jQuery & DataTables JS -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://code.jquery.com/ui/1.14.1/jquery-ui.min.js"></script>
-  <script src="https://cdn.datatables.net/2.0.2/js/dataTables.min.js"></script>
-
-  <!-- Buttons Extension -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
-  <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
-
-  <!-- Buttons Plugins (Excel, PDF, Print, etc.) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-  <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
-  <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
-
-  <!-- CodeMirror JS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/r/r.min.js"></script>
+  <!-- Keep DuckDB WASM and WebR on CDN as specified -->
+  <!-- Other dependencies now handled via Vite/npm -->
 </head>
 
 <body>
@@ -49,10 +23,10 @@
         </select>
       </header>
       <header id="header-rhs" class="header-segment">
-        <button class="dt-button" id="toggle-viz-btn">&#9664; Visualize (R+ggplot)</button>
+        <button class="cs-button" id="toggle-viz-btn">&#9664; Visualize (R+ggplot)</button>
         <div id="global-header-buttons">
-          <button class="dt-button" id="reset-btn">Reset</button>
-          <button class="dt-button" id="share-btn">Share</button>
+          <button class="cs-button" id="reset-btn">Reset</button>
+          <button class="cs-button" id="share-btn">Share</button>
         </div>
       </header>
     <!-- </div> -->
@@ -72,7 +46,7 @@
       <textarea id="r-editor" class="form-control" rows="10"></textarea>
       <div class="padded-view">
       <div class="centered-content">
-        <a class="dt-button" id="svg-dl-btn" download="cloudspecs-plot.svg">Download SVG</a>
+        <a class="cs-button" id="svg-dl-btn" download="cloudspecs-plot.svg">Download SVG</a>
       </div>
       <div id="r-status" class="error-msg"></div>
       <div id="r-output"></div>
@@ -93,7 +67,7 @@
       </div>
       <span title="Till Steinert, Maximilian Kuschewski and Viktor Leis">Made with &#10084; by <a href="https://www.cs.cit.tum.de/dis/home/">TUM DIS</a></span>
   </div>
-  <script type="module" src="/main.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 
 </html>

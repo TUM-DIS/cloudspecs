@@ -29,6 +29,7 @@ html {
 
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
+  /*font-family: 'JetBrains Mono', 'Courier New', monospace;*/
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #2c3e50;
@@ -161,7 +162,7 @@ header {
   margin-right: .7em;
 }
 
-.dropdown {
+.dropdown, .cs-button {
     position: relative;
     display: inline-block;
     box-sizing: border-box;
@@ -186,4 +187,15 @@ header {
     text-decoration: none;
     outline: none;
     text-overflow: ellipsis;
+}
+
+.cs-button:hover:not(.disabled){
+    border: 1px solid #666;
+    background-color: rgba(0, 0, 0, 0.1);
+    background: linear-gradient(to bottom, rgba(153, 153, 153, 0.1) 0%, rgba(0, 0, 0, 0.1) 100%);
+    filter: progid:DXImageTransform.Microsoft.gradient(GradientType=0,StartColorStr="rgba(153, 153, 153, 0.1)", EndColorStr="rgba(0, 0, 0, 0.1)");
+}
+
+.cs-button:hover {
+    text-decoration: none;
 }

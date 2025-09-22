@@ -1,8 +1,20 @@
 // For rendering EC2 Table
-import 'datatables.net-responsive-dt';
 import './ResultTable.css'
+import 'datatables.net-dt/css/dataTables.dataTables.css';
+import 'datatables.net-buttons-dt/css/buttons.dataTables.css';
+
+// Import DataTables and plugins
+import DataTable from 'datatables.net-dt';
+import 'datatables.net-buttons-dt';
+import 'datatables.net-buttons/js/buttons.html5.js';
+import 'datatables.net-buttons/js/buttons.print.js';
+import 'datatables.net-responsive-dt';
+
 import { copyToClipboard } from '/util.js'
-/// XXX replace cdn with js modules and bundle using vite
+
+// Import export libraries for buttons functionality
+import JSZip from 'jszip';
+window.JSZip = JSZip;
 
 export default class ResultTable {
   #selector;
@@ -29,13 +41,17 @@ export default class ResultTable {
       buttons: [
         {
           extend: 'csv',
-          filename: 'ec2_instances_data',
+          filename: 'cloudspecs_query_result',
           text: 'Export Result [CSV]'
         },
         {
           extend: 'excel',
-          filename: 'ec2_instances_data',
+          filename: 'cloudspecs_query_result',
           text: 'Export Result [XLS]'
+        },
+        {
+          extend: 'print',
+          text: 'Print Result'
         }
       ],
       pageLength: 100, // default row count

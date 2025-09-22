@@ -1,5 +1,7 @@
 // main.js
 // Orchestrates components: state manager, code editors, database querying, and table rendering
+import './bootstrap.js'
+import 'jquery-ui/dist/jquery-ui.js';
 import state from './components/state.js';
 import CodeEditor from './components/CodeEditor.js';
 import DB from './components/db.js';
