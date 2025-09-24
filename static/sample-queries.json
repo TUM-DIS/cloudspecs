@@ -3,8 +3,8 @@
         "description": "Column Info",
         "sql_code": [
             "SELECT a.table_name, a.column_name AS name, d.column_type AS type, a.comment AS description",
-            "FROM duckdb_columns() a JOIN (describe aws) d ON d.column_name = a.column_name",
-            "WHERE a.table_name = 'aws'"
+            "FROM duckdb_columns() a JOIN (describe aws_all) d ON d.column_name = a.column_name",
+            "WHERE a.table_name = 'aws_all'"
         ],
         "r_code": ""
     },
