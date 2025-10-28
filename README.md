@@ -7,7 +7,7 @@
 
 ## Paper
 
-Cloudspecs was accepted at the [CIDR 2026](https://www.cidrdb.org/cidr2026/index.html) conference.
+Cloudspecs was accepted at the [CIDR 2026](https://www.cidrdb.org/cidr2026/papers.html) conference.
 A preprint of our paper will be available soon.
 If you find Cloudspecs or our analysis useful for your research, please consider citing:
 ```
@@ -34,3 +34,14 @@ Start a development server:
 npm run dev
 ```
 You can access your local deployment at [`http://localhost:5173/`](http://localhost:5173/)
+
+## Custom Reproducability Sites
+You can use the Cloudspecs framework to create custom reproducability sites for your own papers by forking this repository and replacing Cloudspecs with your own database.
+You'll probably want to replace/adapt the following files:
+- static/cloudspecs.duckdb
+- static/sample-queries.json
+- components/db.js
+- vite.config.js
+
+Cloudspecs does not require a web server and can be hosted e.g., on GitHub Pages.
+We also provide a LaTex package (in the `resource` folder) that showcases creating clickable figures that reference your reproducability site from within your paper.
