@@ -44,4 +44,4 @@ You'll probably want to replace/adapt the following files:
 - vite.config.js
 
 Cloudspecs does not require a web server and can be hosted e.g., on GitHub Pages.
-We also provide a LaTex package (in the `resource` folder) that showcases creating clickable figures that reference your reproducability site from within your paper.
+We also provide a LaTex package (in the `latex` folder) that showcases creating clickable figures that reference your reproducibility site from within your paper.
