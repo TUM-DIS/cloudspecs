@@ -35,7 +35,7 @@ npm run dev
 ```
 You can access your local deployment at [`http://localhost:5173/`](http://localhost:5173/)
 
-## Custom Reproducability Sites
+## Custom Reproducibility Sites
 You can use the Cloudspecs framework to create custom reproducibility sites for your own papers by forking this repository and replacing Cloudspecs with your own database.
 You'll probably want to replace/adapt the following files:
 - static/cloudspecs.duckdb
