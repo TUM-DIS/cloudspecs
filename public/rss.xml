@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<rss version="2.0">
+<channel>
+  <title>cloudspecs</title>
+  <link>https://cloudspecs.fyi</link>
+  <description>A database of cloud instances and performance metrics</description>
+  <item>
+    <title>Hello World</title>
+    <link>https://cloudspecs.fyi</link>
+    <description>cloudspecs is now in private beta</description>
+  </item>
+</channel>
+</rss> 
