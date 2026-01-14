@@ -7,8 +7,8 @@
 
 ## Paper
 
-Cloudspecs was accepted at the [CIDR 2026](https://www.cidrdb.org/cidr2026/papers.html) conference.
-You can find a preprint of our paper [here](https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/cloudspecs-final.pdf).
+Cloudspecs was accepted at the [CIDR 2026](https://www.cidrdb.org/cidr2026/program.html) conference.
+You can find a preprint of our paper [here](https://vldb.org/cidrdb/papers/2026/p17-steinert.pdf).
 If you find Cloudspecs or our analysis useful for your research, please consider citing:
 ```
 @inproceedings{DBLP:conf/cidr/SteinertKL26,
