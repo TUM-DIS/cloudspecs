@@ -1,0 +1,4 @@
+boto3
+duckdb
+beautifulsoup4
+pyjwt[crypto]  # gcp.py: service-account OAuth (RS256)
