@@ -1,15 +1,21 @@
-# cloudspecs builders (AWS + GCP)
+# cloudspecs builders (AWS + GCP + Azure + STACKIT + OVHcloud)
 
 Self-contained rewrite of the cloud scrapers that produce `cloudspecs.duckdb`.
 No dependency on the rest of this repository. Only **Linux on-demand prices** are
-collected (AWS: us-east-1; GCP: us-central1, a lowest-price-tier region).
+collected (AWS: us-east-1; GCP: us-central1; Azure: eastus; STACKIT: eu01; OVHcloud:
+standard region — each a low-price reference region).
 
 - `build.py` — AWS EC2 → `aws_all` table + views
 - `gcp.py` — GCP Compute Engine → `gcp_all` table + views
+- `azure.py` — Azure Virtual Machines → `azure_all` table + views
+- `stackit.py` — STACKIT Compute Engine → `stackit_all` table + views
+- `ovh.py` — OVHcloud Public Cloud instances → `ovh_all` table + views
 
-Both write into the same `cloudspecs.duckdb` with an **identical 27-column
-schema** (same names, same order), so the two clouds are directly comparable
-(e.g. `select * from aws_all union all select * from gcp_all`).
+All five write into the same `cloudspecs.duckdb` with an **identical 27-column
+schema** (same names, same order), so the clouds are directly comparable (e.g.
+`select * from aws_all union all select * from gcp_all union all select * from azure_all
+union all select * from stackit_all union all select * from ovh_all`). Prices are USD
+(STACKIT's and OVHcloud's EUR prices are converted at the ECB reference rate).
 
 ## AWS — `build.py`
 
@@ -90,8 +96,159 @@ python gcp.py --region europe-west1  # price a different region
 ```
 
 Run `build.py` **first** — it recreates `cloudspecs.duckdb` from scratch — then
-`gcp.py`, which opens the existing file and only adds/replaces its own
-`gcp_*` tables and views.
+`gcp.py`, `azure.py`, `stackit.py` and `ovh.py`, which open the existing file and only
+add/replace their own `gcp_*` / `azure_*` / `stackit_*` / `ovh_*` tables and views (in
+any order).
+
+## Azure — `azure.py`
+
+The Azure Virtual Machines counterpart to `build.py`, same style and schema.
+Writes an `azure_all` table plus four views:
+
+| Object | Contents |
+|--------|----------|
+| `azure_all` | every VM size — all 27 `aws_all` columns |
+| `azure` | comparable slice: current, priced, full-vCPU (non-constrained), non-burstable (B-series), non-accelerator, non-HPC (drops the same "strange instances" the AWS `aws` view does) |
+| `azure_family` | one representative size per family |
+| `azure_accel` | GPU/accelerator (N-series) sizes, with the GPU model |
+| `azure_burst` | burstable B-series sizes |
+
+Unlike GCP, Azure has a **direct per-VM on-demand price** (Retail Prices API) and
+rich API specs — physical cores (`vCPUsPerCore`), remote-disk throughput
+(`UncachedDisk*` → `ebs_*`), local NVMe size + IOPS, and constrained-core sizes
+(`vCPUsAvailable` → `vcpus_base`). Two things need non-API sources: network
+bandwidth is scraped from the size docs, and `release_year` / `processor_model`
+come from static tables in `azure.py`.
+
+### Data sources
+
+| Data | Source | Auth |
+|------|--------|------|
+| vCPU/RAM/cores/arch/GPU/local-disk/remote-disk throughput | Resource SKUs API `Microsoft.Compute/skus` | service principal (Reader) |
+| Linux on-demand price | Public [Retail Prices API](https://prices.azure.com/api/retail/prices) (de-duped vs Windows/Spot/Low-Priority/Cloud-Services) | none |
+| Max network bandwidth | Azure size docs `learn.microsoft.com/.../virtual-machines/sizes/*` (all series pages, cached) | none |
+| Family, category, `vcpus_base`, GPU model, `processor_model`, GA year | derived / static tables in `azure.py` | — |
+
+`net_gbitps` is Azure's single "Max Network Bandwidth" (no baseline/peak split),
+NULL for the confidential DC-series and a few legacy sizes whose docs omit it.
+`processor_model` is a coarse CPU vendor/generation, not an exact model.
+
+### Setup & usage
+
+Requires a service-principal JSON at `../azure.json` with keys `tenant_id`,
+`client_id`, `client_secret`, `subscription_id`. The principal only needs
+**Reader** on any one subscription (SKU metadata is subscription-independent):
+
+```sh
+az ad sp create-for-rbac --name cloudspecs-reader \
+   --role Reader --scopes /subscriptions/<SUBSCRIPTION_ID>
+```
+
+```sh
+pip install -r requirements.txt
+
+# creds default to ../azure.json, or set AZURE_CREDENTIALS
+python azure.py                      # -> cloudspecs.duckdb (adds azure_all + views)
+python azure.py --region westus2     # price a different region
+python azure.py --refresh            # re-download cached size doc pages
+```
+
+Size doc pages are cached under `work/azure/` (gitignored); `--refresh`
+re-downloads them.
+
+## STACKIT — `stackit.py`
+
+The STACKIT (Schwarz Group) Compute Engine counterpart to `build.py`, same style and
+schema. Writes a `stackit_all` table plus four views:
+
+| Object | Contents |
+|--------|----------|
+| `stackit_all` | every flavor — all 27 `aws_all` columns |
+| `stackit` | comparable slice: current, priced, non-GPU, non-burstable (drops the same "strange instances" the AWS `aws` view does) |
+| `stackit_family` | one representative flavor per family |
+| `stackit_accel` | GPU (n-series) flavors, with the GPU model |
+| `stackit_burst` | CPU-overprovisioned ("burstable") families |
+
+STACKIT is the simplest cloud here: **both data sources are public, no auth.** The
+flavor universe and core specs come straight from the price list; the docs page only
+enriches it. Prices are published in **EUR** and converted to **USD** (to match the
+other clouds) at the live ECB reference rate.
+
+### Data sources
+
+| Data | Source | Auth |
+|------|--------|------|
+| Flavor universe, price, vCPU, RAM, CPU vendor, overprovisioning flag | Public [price-list JSON](https://pim.api.stackit.cloud/v1/skus?region=eu01) (`region=eu01`, standard/non-metro flavors) | none |
+| Local disk, GPU model + memory, CPU microarchitecture | [Machine-types docs](https://docs.stackit.cloud/products/compute-engine/server/basics/machine-types/) | none |
+| EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
+| Family, category, cores, release year, accelerator count | derived in `stackit.py` | — |
+
+`net_gbitps` and `ebs_*` are always NULL — STACKIT publishes no per-flavor network or
+block-storage throughput. `processor_model` is the CPU microarchitecture (coarse vendor
+where the docs omit a family). `release_year` is the CPU generation's launch year (a
+proxy; STACKIT publishes no GA date). Metro (distributed-placement) meters are dropped
+as duplicates of the standard flavor at a higher price.
+
+### Usage
+
+```sh
+pip install -r requirements.txt
+
+python stackit.py                    # -> cloudspecs.duckdb (adds stackit_all + views)
+python stackit.py --region eu02      # price a different region
+python stackit.py --eur-usd 1.10     # pin the FX rate instead of the live ECB rate
+python stackit.py --refresh          # re-download the cached price list + docs page
+```
+
+The price list and docs page are cached under `work/stackit/` (gitignored); `--refresh`
+re-downloads them.
+
+## OVHcloud — `ovh.py`
+
+The OVHcloud Public Cloud counterpart to `build.py`, same style and schema. Writes an
+`ovh_all` table plus four views:
+
+| Object | Contents |
+|--------|----------|
+| `ovh_all` | every flavor — all 27 `aws_all` columns |
+| `ovh` | comparable slice: current, priced, guaranteed-resources (non-sandbox), non-GPU |
+| `ovh_family` | one representative flavor per family (net-efficiency window like `aws_family`) |
+| `ovh_accel` | GPU flavors, with the GPU model |
+| `ovh_burst` | sandbox / shared-vCore (non-guaranteed) flavors — OVH's cheap tier |
+
+Like STACKIT, **one public source, no auth** — and it's unusually complete. Every
+instance flavor is an entry in the OVHcloud order catalog whose `blobs.technical` carries
+the full spec (vCores, memory, public-network bandwidth, local disks + IOPS, GPU
+model/memory/count) *and* whose `pricings` carries the hourly price. Prices are **EUR**,
+converted to **USD** at the live ECB reference rate.
+
+### Data sources
+
+| Data | Source | Auth |
+|------|--------|------|
+| Flavor universe, price, vCPU, RAM, bandwidth, local disk, GPU | Public [order catalog](https://api.ovh.com/1.0/order/catalog/public/cloud?ovhSubsidiary=FR) (`publiccloud-instance` addons, base `<flavor>.consumption` plan, Linux) | none |
+| EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
+| Family, category, CPU model, release year | derived / curated in `ovh.py` | — |
+
+`cores` is NULL (OVH publishes vCores = `vcpus`, not a physical-core count). `ebs_*` is
+NULL (block-storage throughput is per-volume, not per-flavor). `processor_model` is
+populated only for bare-metal flavors (which name a real CPU) and a curated per-family
+table; standard flavors report a generic "vCore". `release_year` is an approximate
+curated per-family GA year. The `win-*` (Windows) and spec-less catalog stubs are
+skipped; flavors tagged `legacy` are kept in `ovh_all` but marked `is_current = false`.
+
+### Usage
+
+```sh
+pip install -r requirements.txt
+
+python ovh.py                        # -> cloudspecs.duckdb (adds ovh_all + views)
+python ovh.py --subsidiary DE        # a different EUR catalog (price is uniform across EUR subs)
+python ovh.py --eur-usd 1.10         # pin the FX rate instead of the live ECB rate
+python ovh.py --refresh              # re-download the cached catalog
+```
+
+The catalog is cached under `work/ovh/` (gitignored); `--refresh` re-downloads it.
 
 ## Debugging
 

@@ -222,15 +222,25 @@ CPU_PLATFORM = {
     "g2": "Intel Cascade Lake", "g4": "AMD EPYC Turin", "z3": "Intel Sapphire Rapids",
 }
 
-# Per-GPU memory (GiB) by guestAcceleratorType, from the upstream scraper /
-# Google Cloud GPU docs. Unknown models -> 0 (field left null rather than faked).
+# Per-accelerator memory (GiB, nominal) by guestAcceleratorType, from the Google
+# Cloud GPU/TPU docs (the API does not report accelerator memory). TPU entries are
+# HBM per chip. Unknown models -> 0 (field left null rather than faked).
 GPU_MEM_GIB = {
+    "nvidia-gb300": 288,
+    "nvidia-gb200": 186,
+    "nvidia-b200": 180,
     "nvidia-h200-141gb": 141,
     "nvidia-h100-80gb": 80,
     "nvidia-h100-mega-80gb": 80,
     "nvidia-a100-80gb": 80,
     "nvidia-tesla-a100": 40,
     "nvidia-l4": 24,
+    "nvidia-rtx-pro-6000": 96,
+    "ct3": 32, "ct3p": 32,          # TPU v3
+    "ct5l": 16, "ct5lp": 16,        # TPU v5e
+    "ct5p": 95,                     # TPU v5p
+    "ct6e": 32,                     # TPU v6e (Trillium)
+    "tpu7x": 192,                   # TPU v7 (Ironwood)
 }
 
 # guestAcceleratorType -> on-demand GPU SKU description (minus " running in ...").
@@ -245,6 +255,27 @@ GPU_SKU = {
     "nvidia-h200-141gb":   "H200 141GB GPU",
     "nvidia-l4":           "Nvidia L4 GPU",
     "nvidia-rtx-pro-6000": "RTX 6000 96GB",
+}
+
+# guestAcceleratorType -> display name matching the other clouds' style ("NVIDIA
+# H100", not "nvidia-h100-80gb"), applied on write; the slug keys GPU_MEM_GIB /
+# GPU_SKU internally. Memory variants share a name -- accelerator_gib disambiguates.
+ACCEL_MODEL = {
+    "nvidia-tesla-a100":   "NVIDIA A100",
+    "nvidia-a100-80gb":    "NVIDIA A100",
+    "nvidia-h100-80gb":    "NVIDIA H100",
+    "nvidia-h100-mega-80gb": "NVIDIA H100",
+    "nvidia-h200-141gb":   "NVIDIA H200",
+    "nvidia-b200":         "NVIDIA B200",
+    "nvidia-gb200":        "NVIDIA GB200",
+    "nvidia-gb300":        "NVIDIA GB300",
+    "nvidia-l4":           "NVIDIA L4",
+    "nvidia-rtx-pro-6000": "NVIDIA RTX PRO 6000",
+    "ct3": "Google TPU v3", "ct3p": "Google TPU v3",
+    "ct5l": "Google TPU v5e", "ct5lp": "Google TPU v5e",
+    "ct5p": "Google TPU v5p",
+    "ct6e": "Google TPU v6e",
+    "tpu7x": "Google TPU v7",
 }
 
 
@@ -667,7 +698,7 @@ def build_rows(specs, net, core_rates, ram_rates, ssd_rates, gpu_rates, region):
             None,  # ebs_peak_iops
             None,  # ebs_peak_gbitps
             s["accelerators"],
-            s["accelerator_model"],
+            ACCEL_MODEL.get(s["accelerator_model"], s["accelerator_model"]),
             s["accelerator_gib"],
             s["is_current"],
             s["storage_read_iops"],
@@ -735,9 +766,9 @@ COMMENT ON COLUMN gcp_all.storage_is_nvme IS 'Whether bundled local SSD uses the
 COMMENT ON COLUMN gcp_all.ebs_gbitps IS 'Always NULL (see ebs_iops)';
 COMMENT ON COLUMN gcp_all.ebs_peak_iops IS 'Always NULL (see ebs_iops)';
 COMMENT ON COLUMN gcp_all.ebs_peak_gbitps IS 'Always NULL (see ebs_iops)';
-COMMENT ON COLUMN gcp_all.accelerators IS 'Number of attached accelerators (GPUs)';
-COMMENT ON COLUMN gcp_all.accelerator_model IS 'Accelerator (GPU) model';
-COMMENT ON COLUMN gcp_all.accelerator_gib IS 'Total accelerator memory in GiB';
+COMMENT ON COLUMN gcp_all.accelerators IS 'Number of attached accelerators (GPUs/TPU chips)';
+COMMENT ON COLUMN gcp_all.accelerator_model IS 'Accelerator model (display name; memory variants like A100 40/80GB share a name -- see accelerator_gib)';
+COMMENT ON COLUMN gcp_all.accelerator_gib IS 'Total accelerator memory (nominal GB, curated from GCP docs; NULL when unknown)';
 COMMENT ON COLUMN gcp_all.is_current IS 'Whether this machine type is current (not deprecated)';
 COMMENT ON COLUMN gcp_all.storage_read_iops IS 'Bundled local SSD random read IOPS';
 COMMENT ON COLUMN gcp_all.storage_write_iops IS 'Bundled local SSD random write IOPS';

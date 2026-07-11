@@ -316,7 +316,10 @@ def accelerator_info(api):
         info = api[info_key]
         dev = info[list_key][0]
         model = f'{dev["Manufacturer"]} {dev["Name"]}' if with_mfr else dev["Name"]
-        return dev["Count"], model, info[mem_key] / 1024
+        # fractional-GPU sizes (g6f: 1/8..1/2 of an L4) report Count 0 (floored);
+        # count the slice as 1 device -- gib already holds the slice's memory.
+        count = max(dev["Count"], 1)
+        return count, model, info[mem_key] / 1024
     return 0, None, None
 
 
@@ -570,9 +573,9 @@ COMMENT ON COLUMN aws_all.ebs_iops IS 'Baseline EBS-optimized IOPS';
 COMMENT ON COLUMN aws_all.ebs_gbitps IS 'Baseline EBS-optimized bandwidth in Gbit/s';
 COMMENT ON COLUMN aws_all.ebs_peak_iops IS 'Maximum (burst) EBS-optimized IOPS';
 COMMENT ON COLUMN aws_all.ebs_peak_gbitps IS 'Maximum (burst) EBS-optimized bandwidth in Gbit/s';
-COMMENT ON COLUMN aws_all.accelerators IS 'Number of attached accelerators (GPU/FPGA/Neuron/Media)';
+COMMENT ON COLUMN aws_all.accelerators IS 'Number of attached accelerators (GPU/FPGA/Neuron/Media); fractional-GPU slices (g6f) count as 1';
 COMMENT ON COLUMN aws_all.accelerator_model IS 'Accelerator model';
-COMMENT ON COLUMN aws_all.accelerator_gib IS 'Total accelerator memory in GiB';
+COMMENT ON COLUMN aws_all.accelerator_gib IS 'Total accelerator memory in GiB (API MiB value; the slice memory on fractional-GPU sizes)';
 COMMENT ON COLUMN aws_all.is_current IS 'Whether this is a current-generation instance type';
 COMMENT ON COLUMN aws_all.storage_read_iops IS 'Instance-storage random read IOPS';
 COMMENT ON COLUMN aws_all.storage_write_iops IS 'Instance-storage random write IOPS';
