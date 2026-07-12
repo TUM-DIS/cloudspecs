@@ -586,7 +586,9 @@ COMMENT ON COLUMN aws_all.release_year IS 'Release date as a fractional year, ye
 def write_duckdb(rows, out_path):
     if os.path.exists(out_path):
         os.remove(out_path)
-    con = duckdb.connect(out_path)
+    # 16 KiB blocks (minimum) instead of the 256 KiB default: every table here
+    # is far smaller than one default block, which would pad the file to >2 MB.
+    con = duckdb.connect(out_path, config={"default_block_size": 16384})
     cols_ddl = ", ".join(f'"{name}" {typ}' for name, typ in COLUMNS)
     con.execute(f"create table aws_all ({cols_ddl});")
     placeholders = ", ".join(["?"] * len(COLUMNS))
