@@ -16,7 +16,9 @@
   <div id="app" class="tableview">
     <!-- <div id="header-container"> -->
       <header id="header-lhs" class="header-segment">
-        <object id="logo" data="static/logo/cloudspecs-logo.svg" type="image/svg+xml" alt="Cloudspecs" title="Cloudspecs"></object>
+        <a id="logo-link" href="." title="Cloudspecs — reset">
+          <object id="logo" data="static/logo/cloudspecs-logo.svg" type="image/svg+xml" alt="Cloudspecs"></object>
+        </a>
         <!-- <img id="logo" src="static/cloudspec-logo.svg" alt="Cloudspecs" /> -->
         <select class="dropdown" id="sample-queries">
           <option value="" disabled selected>Select Example</option>
@@ -25,7 +27,6 @@
       <header id="header-rhs" class="header-segment">
         <button class="cs-button" id="toggle-viz-btn">&#9664; Visualize (R+ggplot)</button>
         <div id="global-header-buttons">
-          <button class="cs-button" id="reset-btn">Reset</button>
           <button class="cs-button" id="share-btn">Share</button>
         </div>
       </header>
@@ -55,17 +56,75 @@
     <!-- r output (visualization) -->
     <!-- global toast -->
     <div id="toast" class="toast">Link copied to clipboard!</div>
+    <!-- schema explanation -->
+    <dialog id="schema-dialog">
+      <button class="cs-button" id="schema-close-btn">Close</button>
+      <h2>Database Schema</h2>
+      <p>
+        The database covers five clouds, each with the table prefix
+        <code>aws</code>, <code>gcp</code>, <code>azure</code>, <code>stackit</code> or <code>ovh</code>.
+        Prices are Linux on-demand rates in USD per hour from one low-price reference region per cloud
+        (AWS: us-east-1, GCP: us-central1, Azure: eastus, STACKIT: eu01, OVHcloud: standard region;
+        EUR prices converted at the ECB reference rate).
+      </p>
+      <table class="schema-table">
+        <tr><th>Table / View</th><th>Contents</th></tr>
+        <tr><td><code>&lt;cloud&gt;_all</code></td><td>Every instance type of that cloud. All five tables share an identical 27-column schema, so clouds are directly comparable, e.g. <code>select * from aws_all union all select * from gcp_all</code>.</td></tr>
+        <tr><td><code>&lt;cloud&gt;</code></td><td>Comparable slice: current-generation, priced, non-burstable, non-accelerator, non-metal instances ("strange instances" dropped).</td></tr>
+        <tr><td><code>&lt;cloud&gt;_family</code></td><td>One representative instance per family (not available for GCP).</td></tr>
+        <tr><td><code>&lt;cloud&gt;_accel</code></td><td>GPU/accelerator instances.</td></tr>
+        <tr><td><code>&lt;cloud&gt;_burst</code></td><td>Burstable / shared-core instances (<code>vcpus_base &lt; vcpus</code>).</td></tr>
+        <tr><td><code>benchmark</code></td><td>SPEC CPU results for AWS instances: <code>instance, benchmark, value</code>.</td></tr>
+      </table>
+      <h3>Columns of <code>&lt;cloud&gt;_all</code></h3>
+      <p>Values a cloud does not publish are <code>NULL</code>.</p>
+      <table class="schema-table">
+        <tr><th>Column</th><th>Description</th></tr>
+        <tr><td><code>instance</code></td><td>Full instance name (e.g. c7g.medium)</td></tr>
+        <tr><td><code>family</code></td><td>Instance family (name prefix before the size, e.g. c7g)</td></tr>
+        <tr><td><code>category</code></td><td>Provider's instance category (e.g. General purpose, Compute optimized)</td></tr>
+        <tr><td><code>price_hour</code></td><td>Linux on-demand price per hour in USD (reference region)</td></tr>
+        <tr><td><code>ram_gib</code></td><td>Main memory in GiB</td></tr>
+        <tr><td><code>vcpus</code></td><td>Number of vCPUs (hyperthreads)</td></tr>
+        <tr><td><code>vcpus_base</code></td><td>Baseline vCPUs; burstable/shared-core instances run below <code>vcpus</code>, equals <code>vcpus</code> otherwise</td></tr>
+        <tr><td><code>cores</code></td><td>Number of physical cores</td></tr>
+        <tr><td><code>processor_model</code></td><td>Processor model (granularity varies by cloud)</td></tr>
+        <tr><td><code>arch</code></td><td>Processor architecture (x86_64, arm64)</td></tr>
+        <tr><td><code>net_gbitps</code></td><td>Baseline network bandwidth in Gbit/s</td></tr>
+        <tr><td><code>net_peak_gbitps</code></td><td>Peak (burst) network bandwidth in Gbit/s</td></tr>
+        <tr><td><code>storage_gb</code></td><td>Total local instance storage in GB</td></tr>
+        <tr><td><code>storage_count</code></td><td>Number of local storage devices</td></tr>
+        <tr><td><code>storage_is_ssd</code></td><td>Whether local storage is SSD</td></tr>
+        <tr><td><code>storage_is_nvme</code></td><td>Whether local storage is NVMe</td></tr>
+        <tr><td><code>ebs_iops</code></td><td>Baseline remote block storage (EBS-style) IOPS</td></tr>
+        <tr><td><code>ebs_gbitps</code></td><td>Baseline remote block storage bandwidth in Gbit/s</td></tr>
+        <tr><td><code>ebs_peak_iops</code></td><td>Maximum (burst) remote block storage IOPS</td></tr>
+        <tr><td><code>ebs_peak_gbitps</code></td><td>Maximum (burst) remote block storage bandwidth in Gbit/s</td></tr>
+        <tr><td><code>accelerators</code></td><td>Number of attached accelerators (GPU/FPGA/...)</td></tr>
+        <tr><td><code>accelerator_model</code></td><td>Accelerator model</td></tr>
+        <tr><td><code>accelerator_gib</code></td><td>Total accelerator memory in GiB</td></tr>
+        <tr><td><code>is_current</code></td><td>Whether this is a current-generation instance type</td></tr>
+        <tr><td><code>storage_read_iops</code></td><td>Local-storage random read IOPS</td></tr>
+        <tr><td><code>storage_write_iops</code></td><td>Local-storage random write IOPS</td></tr>
+        <tr><td><code>release_year</code></td><td>Release date as a fractional year, year + (month-1)/12</td></tr>
+      </table>
+    </dialog>
     <div id="grid-resize"></div>
     <footer>
       <div id="footer-links" class="linklist">
-        <a href="https://github.com/TUM-DIS/cloudspecs" target="_blank">&#11088; Star</a>
+        <a href="https://github.com/TUM-DIS/cloudspecs" target="_blank">&#11088; Code</a>
         <a href="https://github.com/TUM-DIS/cloudspecs/tree/main/static" target="_blank">Download Database [DuckDB]</a>
+        <a href="#" id="schema-btn">Help</a>
+      </div>
+      <div id="db-info">
+        AWS &middot; GCP &middot; Azure &middot; STACKIT &middot; OVHcloud
+        &mdash; last updated <span id="last-updated"></span>
       </div>
       <div id="tech-links">
         Powered by <a href="https://duckdb.org/docs/stable/clients/wasm/overview.html">DuckDB Wasm</a>
         and <a href="https://docs.r-wasm.org/webr/latest/">WebR</a>
       </div>
-      <span title="Till Steinert, Maximilian Kuschewski and Viktor Leis">Made with &#10084; by <a href="https://www.cs.cit.tum.de/dis/home/">TUM DIS</a></span>
+      <span title="Till Steinert, Maximilian Kuschewski and Viktor Leis">Made by <a href="https://www.cs.cit.tum.de/dis/home/">TUM DIS</a></span>
   </div>
   <script type="module" src="main.js"></script>
 </body>

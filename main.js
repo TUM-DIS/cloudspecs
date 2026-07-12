@@ -13,6 +13,8 @@ import SAMPLE_QUERIES from './static/sample-queries.json';
 import { copyToClipboard } from '/util.js'
 
 const app = {};
+// Date of the last cloudspecs.duckdb refresh; bump when the database is updated.
+const LAST_UPDATED = '2026-07-11';
 ////////////////////////  SQL Editor  ///////////////////////
 // Run query based on current state.sqlQuery
 async function runQuery() {
@@ -141,8 +143,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // button for resetting page
-  $('#reset-btn').click((e) => {
+  // footer database info + schema dialog
+  document.getElementById('last-updated').textContent = LAST_UPDATED;
+  const schemaDialog = document.getElementById('schema-dialog');
+  $('#schema-btn').click((e) => {
+    e.preventDefault();
+    schemaDialog.showModal();
+  });
+  $('#schema-close-btn').click(() => schemaDialog.close());
+  schemaDialog.addEventListener('click', (e) => {
+    if (e.target === schemaDialog) { schemaDialog.close(); }
+  });
+
+  // logo resets the page
+  $('#logo-link').click((e) => {
+    e.preventDefault();
     const newUrl = window.location.origin + window.location.pathname;
     window.location = newUrl;
   });

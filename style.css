@@ -135,6 +135,48 @@ main {
   opacity: 1;
 }
 
+#db-info {
+  font-size: .88em;
+  color: #555;
+}
+
+#schema-dialog {
+  max-width: 46em;
+  max-height: 85vh;
+  overflow: auto;
+  border: 1px solid var(--grey-border);
+  border-radius: 4px;
+  padding: 1em 1.5em;
+}
+
+#schema-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+#schema-dialog h2 {
+  margin-top: 0;
+}
+
+#schema-close-btn {
+  float: right;
+}
+
+.schema-table {
+  border-collapse: collapse;
+  font-size: .88em;
+}
+
+.schema-table th, .schema-table td {
+  border: 1px solid var(--grey-border);
+  padding: .3em .6em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.schema-table th {
+  background-color: var(--grey-bg);
+}
+
 .linklist a + a {
   margin-left: .5em;
 }
@@ -159,7 +201,15 @@ header {
   height: 2.5em;
   margin-top: 0;
   margin-bottom: 0;
+  /* let clicks fall through the embedded SVG to #logo-link */
+  pointer-events: none;
+}
+
+#logo-link {
+  display: flex;
+  align-items: center;
   margin-right: .7em;
+  cursor: pointer;
 }
 
 .dropdown, .cs-button {
