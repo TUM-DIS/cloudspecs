@@ -64,8 +64,7 @@
         The database covers five clouds, each with the table prefix
         <code>aws</code>, <code>gcp</code>, <code>azure</code>, <code>stackit</code> or <code>ovh</code>.
         Prices are Linux on-demand rates in USD per hour from one low-price reference region per cloud
-        (AWS: us-east-1, GCP: us-central1, Azure: eastus, STACKIT: eu01, OVHcloud: standard region;
-        EUR prices converted at the ECB reference rate).
+        (AWS: us-east-1, GCP: us-central1, Azure: eastus, STACKIT: eu01, OVHcloud: standard region).
       </p>
       <table class="schema-table">
         <tr><th>Table / View</th><th>Contents</th></tr>
@@ -74,7 +73,7 @@
         <tr><td><code>&lt;cloud&gt;_family</code></td><td>One representative instance per family (not available for GCP).</td></tr>
         <tr><td><code>&lt;cloud&gt;_accel</code></td><td>GPU/accelerator instances.</td></tr>
         <tr><td><code>&lt;cloud&gt;_burst</code></td><td>Burstable / shared-core instances (<code>vcpus_base &lt; vcpus</code>).</td></tr>
-        <tr><td><code>benchmark</code></td><td>SPEC CPU results for AWS instances: <code>instance, benchmark, value</code>.</td></tr>
+        <!--tr><td><code>benchmark</code></td><td>SPEC CPU results for AWS instances: <code>instance, benchmark, value</code>.</td></tr-->
       </table>
       <h3>Columns of <code>&lt;cloud&gt;_all</code></h3>
       <p>Values a cloud does not publish are <code>NULL</code>.</p>
@@ -113,18 +112,14 @@
     <footer>
       <div id="footer-links" class="linklist">
         <a href="https://github.com/TUM-DIS/cloudspecs" target="_blank">&#11088; Code</a>
-        <a href="https://github.com/TUM-DIS/cloudspecs/tree/main/static" target="_blank">Download Database [DuckDB]</a>
+        <a href="https://github.com/TUM-DIS/cloudspecs/tree/main/static" target="_blank">Download [DuckDB]</a>
         <a href="#" id="schema-btn">Help</a>
       </div>
       <div id="db-info">
         AWS &middot; GCP &middot; Azure &middot; STACKIT &middot; OVHcloud
         &mdash; last updated <span id="last-updated"></span>
       </div>
-      <div id="tech-links">
-        Powered by <a href="https://duckdb.org/docs/stable/clients/wasm/overview.html">DuckDB Wasm</a>
-        and <a href="https://docs.r-wasm.org/webr/latest/">WebR</a>
-      </div>
-      <span title="Till Steinert, Maximilian Kuschewski and Viktor Leis">Made by <a href="https://www.cs.cit.tum.de/dis/home/">TUM DIS</a></span>
+      <span title="Till Steinert, Maximilian Kuschewski and Viktor Leis">Made by <a href="https://www.cs.cit.tum.de/dis/home/">TUM DIS</a> using <a href="https://duckdb.org/docs/stable/clients/wasm/overview.html">DuckDB Wasm</a> and <a href="https://docs.r-wasm.org/webr/latest/">WebR</a></span>
   </div>
   <script type="module" src="main.js"></script>
 </body>
