@@ -1,21 +1,23 @@
-# cloudspecs builders (AWS + GCP + Azure + STACKIT + OVHcloud)
+# cloudspecs builders (AWS + GCP + Azure + STACKIT + OVHcloud + Oracle)
 
 Self-contained rewrite of the cloud scrapers that produce `cloudspecs.duckdb`.
 No dependency on the rest of this repository. Only **Linux on-demand prices** are
 collected (AWS: us-east-1; GCP: us-central1; Azure: eastus; STACKIT: eu01; OVHcloud:
-standard region — each a low-price reference region).
+standard region; Oracle: uniform commercial list price — each a low-price reference).
 
 - `build.py` — AWS EC2 → `aws_all` table + views
 - `gcp.py` — GCP Compute Engine → `gcp_all` table + views
 - `azure.py` — Azure Virtual Machines → `azure_all` table + views
 - `stackit.py` — STACKIT Compute Engine → `stackit_all` table + views
 - `ovh.py` — OVHcloud Public Cloud instances → `ovh_all` table + views
+- `oracle.py` — Oracle Cloud (OCI) Compute shapes → `oracle_all` table + views
 
-All five write into the same `cloudspecs.duckdb` with an **identical 27-column
+All six write into the same `cloudspecs.duckdb` with an **identical 27-column
 schema** (same names, same order), so the clouds are directly comparable (e.g.
 `select * from aws_all union all select * from gcp_all union all select * from azure_all
-union all select * from stackit_all union all select * from ovh_all`). Prices are USD
-(STACKIT's and OVHcloud's EUR prices are converted at the ECB reference rate).
+union all select * from stackit_all union all select * from ovh_all union all select *
+from oracle_all`). Prices are USD (STACKIT's and OVHcloud's EUR prices are converted at
+the ECB reference rate).
 
 ## AWS — `build.py`
 
@@ -96,9 +98,9 @@ python gcp.py --region europe-west1  # price a different region
 ```
 
 Run `build.py` **first** — it recreates `cloudspecs.duckdb` from scratch — then
-`gcp.py`, `azure.py`, `stackit.py` and `ovh.py`, which open the existing file and only
-add/replace their own `gcp_*` / `azure_*` / `stackit_*` / `ovh_*` tables and views (in
-any order).
+`gcp.py`, `azure.py`, `stackit.py`, `ovh.py` and `oracle.py`, which open the existing file
+and only add/replace their own `gcp_*` / `azure_*` / `stackit_*` / `ovh_*` / `oracle_*`
+tables and views (in any order).
 
 ## Azure — `azure.py`
 
@@ -249,6 +251,68 @@ python ovh.py --refresh              # re-download the cached catalog
 ```
 
 The catalog is cached under `work/ovh/` (gitignored); `--refresh` re-downloads it.
+
+## Oracle — `oracle.py`
+
+The Oracle Cloud Infrastructure (OCI) Compute counterpart to `build.py`, same style and
+schema. Writes an `oracle_all` table plus four views:
+
+| Object | Contents |
+|--------|----------|
+| `oracle_all` | every shape — all 27 `aws_all` columns |
+| `oracle` | comparable slice: current, priced, non-GPU, non-bare-metal, non-micro |
+| `oracle_family` | one representative shape per family (net-efficiency window like `aws_family`) |
+| `oracle_accel` | GPU shapes, with the GPU model |
+| `oracle_burst` | the Always-Free micro shape — OCI has no burstable-CPU family, so `vcpus_base` always equals `vcpus` |
+
+Like GCP, OCI has **no per-shape price**: compute is billed per *OCPU-hour* plus per
+*memory-GB-hour* (plus, for GPU shapes, per *GPU-hour*) at a rate that depends only on the
+shape family (E4, E5, A1, …). Each family's OCPU / Memory / GPU rate is a catalog SKU
+identified by a stable part number; `oracle.py` looks those up live (already in USD) and
+assembles `price_hour = ocpu_rate·OCPUs + mem_rate·RAM_GiB (+ gpu_rate·nGPU)`. OCI's PAYG
+list prices are uniform across commercial regions, so there is no region flag.
+
+An **OCPU** is a billing unit, not a vCPU: on x86 (AMD/Intel) 1 OCPU = 1 core = 2 vCPUs;
+on Ampere Altra (A1) 1 OCPU = 1 core = 1 vCPU; on AmpereOne (A2/A4) 1 OCPU = 2 cores =
+2 vCPUs. Modern OCI shapes are **flexible** (you pick the OCPU count and memory), so each
+flexible shape is enumerated over a grid: a doubling sequence of OCPU sizes up to the
+family maximum, crossed with four memory points — 0.25×, 0.5×, 1× and 2× the family's
+default GB/OCPU ratio (16 GB/OCPU for x86 and AmpereOne, 6 GB/OCPU for Altra). On x86 that
+spans **2 / 4 / 8 / 16 GB per vCPU** — a compute point matching AWS c-series (2 GB/vCPU), a
+general point, OCI's console default, and a memory point — so the RAM-per-vCPU axis stays
+diverse and comparable to the other clouds rather than pinned to one ratio. OCI prices flex
+shapes strictly linearly (per-OCPU + per-GB) with **no premium for a custom ratio** (unlike
+GCP, where non-default configs cost ~10% more), so every point is priced exactly. Each row
+is named `<shape>.<OCPUs>-<GB>` (e.g. `VM.Standard.E5.Flex.8-128`); points that collide at a
+family's memory cap are de-duplicated. Fixed shapes (previous-generation VM.Standard2 / E2,
+bare metal, GPU, DenseIO) are taken as-is.
+
+### Data sources
+
+| Data | Source | Auth |
+|------|--------|------|
+| Per-family OCPU-hour / memory-GB-hour / GPU-hour rates | Public [OCI cost-estimator catalog](https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD) (by part number, already USD) | none |
+| Shape specs (OCPU range, memory ratio, CPU, network, local NVMe, GPU) | [Compute Shapes docs](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm) — curated in `oracle.py` | none |
+| Category, `vcpus`/`cores` mapping, release year | derived / curated in `oracle.py` | — |
+
+`ebs_*` is always NULL — OCI block-volume performance is provisioned per-volume, not
+per-shape. `net_gbitps` is the shape's max network bandwidth (scales with OCPU up to a
+family cap); there is no separate baseline, so `net_peak == net`. `storage_*` is populated
+only for DenseIO / GPU shapes with local NVMe. `processor_model` / `release_year` are the
+family's CPU and GA year (curated; OCI publishes no per-shape GA date). Previous-generation
+families (E2, VM.Standard2, E3, older GPUs) are kept in `oracle_all` but marked
+`is_current = false`.
+
+### Usage
+
+```sh
+pip install -r requirements.txt
+
+python oracle.py                     # -> cloudspecs.duckdb (adds oracle_all + views)
+python oracle.py --refresh           # re-download the cached price catalog
+```
+
+The price catalog is cached under `work/oracle/` (gitignored); `--refresh` re-downloads it.
 
 ## Debugging
 

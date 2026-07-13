@@ -61,14 +61,14 @@
       <button class="cs-button" id="schema-close-btn">Close</button>
       <h2>Database Schema</h2>
       <p>
-        The database covers five clouds, each with the table prefix
-        <code>aws</code>, <code>gcp</code>, <code>azure</code>, <code>stackit</code> or <code>ovh</code>.
+        The database covers six clouds, each with the table prefix
+        <code>aws</code>, <code>gcp</code>, <code>azure</code>, <code>stackit</code>, <code>ovh</code> or <code>oracle</code>.
         Prices are Linux on-demand rates in USD per hour from one low-price reference region per cloud
-        (AWS: us-east-1, GCP: us-central1, Azure: eastus, STACKIT: eu01, OVHcloud: standard region).
+        (AWS: us-east-1, GCP: us-central1, Azure: eastus, STACKIT: eu01, OVHcloud: standard region, Oracle: uniform list price).
       </p>
       <table class="schema-table">
         <tr><th>Table / View</th><th>Contents</th></tr>
-        <tr><td><code>&lt;cloud&gt;_all</code></td><td>Every instance type of that cloud. All five tables share an identical 27-column schema, so clouds are directly comparable, e.g. <code>select * from aws_all union all select * from gcp_all</code>.</td></tr>
+        <tr><td><code>&lt;cloud&gt;_all</code></td><td>Every instance type of that cloud. All six tables share an identical 27-column schema, so clouds are directly comparable, e.g. <code>select * from aws_all union all select * from gcp_all</code>.</td></tr>
         <tr><td><code>&lt;cloud&gt;</code></td><td>Comparable slice: current-generation, priced, non-burstable, non-accelerator, non-metal instances (non-standard instances dropped).</td></tr>
         <tr><td><code>&lt;cloud&gt;_family</code></td><td>One representative instance per family.</td></tr>
         <tr><td><code>&lt;cloud&gt;_accel</code></td><td>GPU/accelerator instances.</td></tr>
@@ -116,7 +116,7 @@
         <a href="#" id="schema-btn">Help</a>
       </div>
       <div id="db-info">
-        AWS &middot; GCP &middot; Azure &middot; STACKIT &middot; OVHcloud
+        AWS &middot; GCP &middot; Azure &middot; STACKIT &middot; OVHcloud &middot; Oracle
         &mdash; last updated <span id="last-updated"></span>
       </div>
       <span title="Till Steinert, Maximilian Kuschewski and Viktor Leis">Made by <a href="https://www.cs.cit.tum.de/dis/home/">TUM DIS</a> using <a href="https://duckdb.org/docs/stable/clients/wasm/overview.html">DuckDB Wasm</a> and <a href="https://docs.r-wasm.org/webr/latest/">WebR</a></span>

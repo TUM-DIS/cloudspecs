@@ -9,3 +9,4 @@ npm-debug.log*
 .npm
 .eslintcache
 demo-paper
+datagen/work/

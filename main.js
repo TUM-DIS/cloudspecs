@@ -14,7 +14,7 @@ import { copyToClipboard } from '/util.js'
 
 const app = {};
 // Date of the last cloudspecs.duckdb refresh; bump when the database is updated.
-const LAST_UPDATED = '2026-07-11';
+const LAST_UPDATED = '2026-07-13';
 ////////////////////////  SQL Editor  ///////////////////////
 // Run query based on current state.sqlQuery
 async function runQuery() {
