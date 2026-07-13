@@ -355,7 +355,7 @@ def build_rows(flavors, rate, cpu_by_fam, gpu_by_fam, disk_by_flavor):
             acc_gib,                                    # accelerator_gib
             not ((s.get("deprecated") == "Yes") or cpu_dep),  # is_current
             None, None,                                # storage_read_iops / write_iops
-            _release_year(proc),                        # release_year
+            None, # _release_year(proc),               # release_year
         ))
     priced = len(rows)
     n_gpu = sum(1 for r in rows if r[2] == "GPU")
@@ -414,7 +414,7 @@ COMMENT ON COLUMN stackit_all.accelerator_gib IS 'Total GPU memory in GiB';
 COMMENT ON COLUMN stackit_all.is_current IS 'Whether the flavor is current (not deprecated / not a deprecated CPU generation)';
 COMMENT ON COLUMN stackit_all.storage_read_iops IS 'Always NULL -- not published';
 COMMENT ON COLUMN stackit_all.storage_write_iops IS 'Always NULL -- not published';
-COMMENT ON COLUMN stackit_all.release_year IS 'Approximate: the CPU generation launch year (STACKIT publishes no per-flavor GA date)';
+COMMENT ON COLUMN stackit_all.release_year IS 'Always NULL -- not published';
 """
 
 
