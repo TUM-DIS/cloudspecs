@@ -1,9 +1,10 @@
-# cloudspecs builders (AWS + GCP + Azure + STACKIT + OVHcloud + Oracle)
+# cloudspecs builders (AWS + GCP + Azure + STACKIT + OVHcloud + Oracle + Hetzner)
 
 Self-contained rewrite of the cloud scrapers that produce `cloudspecs.duckdb`.
 No dependency on the rest of this repository. Only **Linux on-demand prices** are
 collected (AWS: us-east-1; GCP: us-central1; Azure: eastus; STACKIT: eu01; OVHcloud:
-standard region; Oracle: uniform commercial list price — each a low-price reference).
+standard region; Oracle: uniform commercial list price; Hetzner: fsn1 — each a low-price
+reference).
 
 - `build.py` — AWS EC2 → `aws_all` table + views
 - `gcp.py` — GCP Compute Engine → `gcp_all` table + views
@@ -11,13 +12,14 @@ standard region; Oracle: uniform commercial list price — each a low-price refe
 - `stackit.py` — STACKIT Compute Engine → `stackit_all` table + views
 - `ovh.py` — OVHcloud Public Cloud instances → `ovh_all` table + views
 - `oracle.py` — Oracle Cloud (OCI) Compute shapes → `oracle_all` table + views
+- `hetzner.py` — Hetzner Cloud servers → `hetzner_all` table + views
 
-All six write into the same `cloudspecs.duckdb` with an **identical 27-column
+All seven write into the same `cloudspecs.duckdb` with an **identical 27-column
 schema** (same names, same order), so the clouds are directly comparable (e.g.
 `select * from aws_all union all select * from gcp_all union all select * from azure_all
 union all select * from stackit_all union all select * from ovh_all union all select *
-from oracle_all`). Prices are USD (STACKIT's and OVHcloud's EUR prices are converted at
-the ECB reference rate).
+from oracle_all union all select * from hetzner_all`). Prices are USD (STACKIT's,
+OVHcloud's and Hetzner's EUR prices are converted at the ECB reference rate).
 
 ## AWS — `build.py`
 
@@ -98,9 +100,9 @@ python gcp.py --region europe-west1  # price a different region
 ```
 
 Run `build.py` **first** — it recreates `cloudspecs.duckdb` from scratch — then
-`gcp.py`, `azure.py`, `stackit.py`, `ovh.py` and `oracle.py`, which open the existing file
-and only add/replace their own `gcp_*` / `azure_*` / `stackit_*` / `ovh_*` / `oracle_*`
-tables and views (in any order).
+`gcp.py`, `azure.py`, `stackit.py`, `ovh.py`, `oracle.py` and `hetzner.py`, which open the
+existing file and only add/replace their own `gcp_*` / `azure_*` / `stackit_*` / `ovh_*` /
+`oracle_*` / `hetzner_*` tables and views (in any order).
 
 ## Azure — `azure.py`
 
@@ -313,6 +315,64 @@ python oracle.py --refresh           # re-download the cached price catalog
 ```
 
 The price catalog is cached under `work/oracle/` (gitignored); `--refresh` re-downloads it.
+
+## Hetzner — `hetzner.py`
+
+The Hetzner Cloud (VPS) counterpart to `build.py`, same style and schema. Writes a
+`hetzner_all` table plus four views:
+
+| Object | Contents |
+|--------|----------|
+| `hetzner_all` | every server type — all 27 `aws_all` columns |
+| `hetzner` | comparable slice: current, priced, **dedicated-vCPU (CCX)** |
+| `hetzner_family` | one representative type per family |
+| `hetzner_accel` | GPU types — empty (Hetzner Cloud has no GPU servers) |
+| `hetzner_burst` | the shared-vCPU lines (CX / CPX / CAX) — Hetzner's oversubscribed tier |
+
+The data source is the Hetzner Cloud API `GET /v1/server_types`, which carries every
+server type's spec (vCPU `cores`, `memory`, local-NVMe `disk`, `cpu_type` shared/dedicated,
+`architecture`) and per-location hourly prices. Unlike STACKIT/OVHcloud this API needs a
+token, so — like the Hetzner **shared** vCPU lines being oversubscribed — the comparable
+`hetzner` view keeps only the **dedicated** CCX line (the shared CX/CPX/CAX lines go to
+`hetzner_burst`, matching how STACKIT's overprovisioned and OVHcloud's shared-vCore
+families are handled). Prices are the compute-only server price (the primary IPv4 is billed
+separately) at the low-price EU reference location fsn1 (== nbg1 / hel1; ash/hil/sin cost
+more), in EUR, converted to USD at the live ECB reference rate.
+
+### Data sources
+
+| Data | Source | Auth |
+|------|--------|------|
+| Server types (vCPU, RAM, disk, cpu_type, arch, price) | Hetzner Cloud API [`/v1/server_types`](https://docs.hetzner.cloud/) | Hetzner Cloud API token |
+| EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
+| CPU model, release year | derived / curated in `hetzner.py` | — |
+
+`net_gbitps` and `ebs_*` are always NULL — Hetzner publishes no per-type network bandwidth
+(only a monthly-traffic allowance), and Volume throughput is per-volume, not per-type.
+`cores` (physical) is inferred from the CPU model's SMT (Ampere Altra CAX = 1 thread/core so
+`cores = vcpus`; Intel Xeon / AMD EPYC = 2-way SMT so `cores = vcpus/2`), since Hetzner
+publishes only vCPUs. `storage_gb` is the included local NVMe SSD. `accelerators` is always 0.
+`processor_model` / `release_year` are curated per family (the API gives neither); CX gen3
+deliberately runs on mixed recycled Intel Xeon Gold / AMD silicon.
+
+### Setup & usage
+
+The API needs a (read-only) Hetzner Cloud API token — create one in any Hetzner Cloud
+project (Security → API tokens). Set `HCLOUD_TOKEN` or drop the token in `../hetzner.txt`:
+
+```sh
+pip install -r requirements.txt
+
+export HCLOUD_TOKEN=...               # or put it in ../hetzner.txt
+python hetzner.py --refresh           # -> cloudspecs.duckdb (adds hetzner_all + views)
+python hetzner.py --location nbg1      # price a different location
+python hetzner.py --eur-usd 1.10       # pin the FX rate instead of the live ECB rate
+```
+
+Without a token `hetzner.py` builds from a **frozen snapshot** of the current EU types
+baked into the script (so the DB is always produced); `--refresh` with a token re-fetches
+live (cached under `work/hetzner/`, gitignored) and additionally picks up any
+deprecated-but-still-priced types (flagged `is_current = false`).
 
 ## Debugging
 

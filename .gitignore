@@ -10,3 +10,7 @@ npm-debug.log*
 .eslintcache
 demo-paper
 datagen/work/
+# cloud credentials (never commit)
+hetzner.token*
+hetzner.txt
+*.token
