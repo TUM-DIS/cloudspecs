@@ -69,8 +69,8 @@
       <table class="schema-table">
         <tr><th>Table / View</th><th>Contents</th></tr>
         <tr><td><code>&lt;cloud&gt;_all</code></td><td>Every instance type of that cloud. All five tables share an identical 27-column schema, so clouds are directly comparable, e.g. <code>select * from aws_all union all select * from gcp_all</code>.</td></tr>
-        <tr><td><code>&lt;cloud&gt;</code></td><td>Comparable slice: current-generation, priced, non-burstable, non-accelerator, non-metal instances ("strange instances" dropped).</td></tr>
-        <tr><td><code>&lt;cloud&gt;_family</code></td><td>One representative instance per family (not available for GCP).</td></tr>
+        <tr><td><code>&lt;cloud&gt;</code></td><td>Comparable slice: current-generation, priced, non-burstable, non-accelerator, non-metal instances (non-standard instances dropped).</td></tr>
+        <tr><td><code>&lt;cloud&gt;_family</code></td><td>One representative instance per family.</td></tr>
         <tr><td><code>&lt;cloud&gt;_accel</code></td><td>GPU/accelerator instances.</td></tr>
         <tr><td><code>&lt;cloud&gt;_burst</code></td><td>Burstable / shared-core instances (<code>vcpus_base &lt; vcpus</code>).</td></tr>
         <!--tr><td><code>benchmark</code></td><td>SPEC CPU results for AWS instances: <code>instance, benchmark, value</code>.</td></tr-->
