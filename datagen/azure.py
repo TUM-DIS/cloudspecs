@@ -15,7 +15,7 @@ Output objects (mirroring the AWS/GCP builds):
                >1.1x more network-efficient per dollar -- degrades to "largest"
                since net_gbitps is null); mirrors aws_family.
   azure_accel  GPU/accelerator (N-series) sizes, with the GPU model.
-  azure_burst  burstable B-series sizes.
+  azure_shared  burstable B-series sizes.
 
 Data sources:
   1. Resource SKUs API  (Microsoft.Compute/skus, ARM management plane) -> specs
@@ -589,7 +589,7 @@ create view azure_family as
 create view azure_accel as
   select * from azure_all
   where category = 'GPU' and accelerator_model is not null;
-create view azure_burst as
+create view azure_shared as
   select * from azure_all where family like 'B%';
 COMMENT ON COLUMN azure_all.instance IS 'VM size name (e.g., D4s_v5); the deployable name is Standard_<instance>';
 COMMENT ON COLUMN azure_all.price_hour IS 'eastus Linux on-demand price per hour in USD (Retail Prices API)';
@@ -625,7 +625,7 @@ def write_duckdb(rows, out_path):
     con = duckdb.connect(out_path)
     cols_ddl = ", ".join(f'"{n}" {t}' for n, t in COLUMNS)
     # Explicitly drop views before the base table (CASCADE is unreliable across reruns).
-    for v in ("azure_family", "azure_accel", "azure_burst", "azure"):
+    for v in ("azure_family", "azure_accel", "azure_shared", "azure"):
         con.execute(f"drop view if exists {v}")
     con.execute("drop table if exists azure_all cascade")
     con.execute(f"create table azure_all ({cols_ddl})")
@@ -635,7 +635,7 @@ def write_duckdb(rows, out_path):
     con.execute(VIEWS_SQL)
     counts = {
         v: con.execute(f"select count(*) from {v}").fetchone()[0]
-        for v in ("azure_all", "azure", "azure_family", "azure_accel", "azure_burst")
+        for v in ("azure_all", "azure", "azure_family", "azure_accel", "azure_shared")
     }
     con.close()
     print("Wrote " + out_path)

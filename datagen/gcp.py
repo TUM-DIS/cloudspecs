@@ -14,7 +14,7 @@ Output objects (mirroring the AWS build):
   gcp_family one representative machine type per family (largest, or 2nd-largest if
              >1.1x more network-efficient per dollar); mirrors aws_family.
   gcp_accel  accelerator (GPU) machine types.
-  gcp_burst  shared-core machine types (vcpus_base < vcpus).
+  gcp_shared  shared-core machine types (vcpus_base < vcpus).
 
 Data sources:
   1. Compute Engine API  (compute.googleapis.com)  -> machine specs
@@ -744,7 +744,7 @@ create view gcp_family as
 create view gcp_accel as
   select * from gcp_all
   where category = 'Accelerator optimized' and accelerator_model is not null;
-create view gcp_burst as
+create view gcp_shared as
   select * from gcp_all where vcpus_base != vcpus;
 COMMENT ON COLUMN gcp_all.price_hour IS 'us-central1 (lowest-price tier) Linux on-demand price per hour in USD, all-in: CPU + RAM + bundled local SSD + attached GPUs (null when a component has no on-demand SKU in the region)';
 COMMENT ON COLUMN gcp_all.processor_model IS 'Family CPU platform (coarser than an exact model; NULL / "variable" where a family spans platforms)';
@@ -780,7 +780,7 @@ def write_duckdb(rows, out_path):
     con = duckdb.connect(out_path)
     cols_ddl = ", ".join(f'"{n}" {t}' for n, t in COLUMNS)
     # Explicitly drop views before the base table (CASCADE is unreliable across reruns).
-    for v in ("gcp_family", "gcp_accel", "gcp_burst", "gcp"):
+    for v in ("gcp_family", "gcp_accel", "gcp_shared", "gcp"):
         con.execute(f"drop view if exists {v}")
     con.execute("drop table if exists gcp")   # legacy: gcp was once a table
     con.execute("drop table if exists gcp_all cascade")
@@ -791,7 +791,7 @@ def write_duckdb(rows, out_path):
     con.execute(VIEWS_SQL)
     counts = {
         v: con.execute(f"select count(*) from {v}").fetchone()[0]
-        for v in ("gcp_all", "gcp", "gcp_family", "gcp_accel", "gcp_burst")
+        for v in ("gcp_all", "gcp", "gcp_family", "gcp_accel", "gcp_shared")
     }
     con.close()
     print("Wrote " + out_path)

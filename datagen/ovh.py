@@ -31,7 +31,7 @@ Output objects (mirroring the AWS/GCP/Azure/STACKIT builds):
              non-sandbox), non-GPU.
   ovh_family one representative flavor per family (net-efficiency window like aws_family).
   ovh_accel  GPU flavors, with the GPU model.
-  ovh_burst  sandbox / shared-vCore flavors, incl. the Discovery (d2) range -- OVH's cheap
+  ovh_shared  sandbox / shared-vCore flavors, incl. the Discovery (d2) range -- OVH's cheap
              tier.
 
 Notes vs AWS: cores is the physical-core count. OVH publishes vCores (= vcpus); on its
@@ -343,7 +343,7 @@ create view ovh_family as
 create view ovh_accel as
   select * from ovh_all
   where category = 'GPU' and accelerator_model is not null;
-create view ovh_burst as
+create view ovh_shared as
   select * from ovh_all where family in ({burst});
 COMMENT ON COLUMN ovh_all.instance IS 'OVHcloud instance flavor name (e.g. b3-8)';
 COMMENT ON COLUMN ovh_all.price_hour IS 'Standard-region Linux hourly on-demand price in USD (catalog consumption price, converted from EUR at the ECB reference rate)';
@@ -378,7 +378,7 @@ COMMENT ON COLUMN ovh_all.release_year IS 'Approximate family GA year (curated; 
 def write_duckdb(rows, burst_families, out_path):
     con = duckdb.connect(out_path)
     cols_ddl = ", ".join(f'"{n}" {t}' for n, t in COLUMNS)
-    for v in ("ovh_family", "ovh_accel", "ovh_burst", "ovh"):
+    for v in ("ovh_family", "ovh_accel", "ovh_shared", "ovh"):
         con.execute(f"drop view if exists {v}")
     con.execute("drop table if exists ovh_all cascade")
     con.execute(f"create table ovh_all ({cols_ddl})")
@@ -388,7 +388,7 @@ def write_duckdb(rows, burst_families, out_path):
     con.execute(views_sql(burst_families))
     counts = {
         v: con.execute(f"select count(*) from {v}").fetchone()[0]
-        for v in ("ovh_all", "ovh", "ovh_family", "ovh_accel", "ovh_burst")
+        for v in ("ovh_all", "ovh", "ovh_family", "ovh_accel", "ovh_shared")
     }
     con.close()
     print("Wrote " + out_path)

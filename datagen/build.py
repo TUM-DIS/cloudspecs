@@ -15,7 +15,7 @@ Data sources (all robust, minimal dependencies):
   6. A small static table for burstable (T2/T3/T3a/T4g) baseline performance
 
 Output: cloudspecs.duckdb, containing table `aws_all` (+ `benchmark`) and the
-views `aws`, `aws_family`, `aws_accel`, `aws_burst`.
+views `aws`, `aws_family`, `aws_accel`, `aws_shared`.
 """
 
 import argparse
@@ -549,7 +549,7 @@ create view aws_accel as
   from aws_all
   where category in ('GPU instance', 'FPGA Instances', 'Machine Learning ASIC Instances', 'Media Accelerator Instances')
   and accelerator_model is not null;
-create view aws_burst as
+create view aws_shared as
   select *
   from aws_all
   where vcpus_base != vcpus;
@@ -599,7 +599,7 @@ def write_duckdb(rows, out_path):
     con.execute(VIEWS_SQL)
     counts = {
         v: con.execute(f"select count(*) from {v}").fetchone()[0]
-        for v in ("aws_all", "aws", "aws_family", "aws_accel", "aws_burst", "benchmark")
+        for v in ("aws_all", "aws", "aws_family", "aws_accel", "aws_shared", "benchmark")
     }
     con.close()
     print("Wrote " + out_path)

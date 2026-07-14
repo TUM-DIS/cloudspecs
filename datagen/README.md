@@ -13,18 +13,32 @@ reference).
 - `ovh.py` — OVHcloud Public Cloud instances → `ovh_all` table + views
 - `oracle.py` — Oracle Cloud (OCI) Compute shapes → `oracle_all` table + views
 - `hetzner.py` — Hetzner Cloud servers → `hetzner_all` table + views
+- `combine.py` — cross-cloud `cloudspecs*` UNION ALL views (run **last**)
 
-All seven write into the same `cloudspecs.duckdb` with an **identical 27-column
-schema** (same names, same order), so the clouds are directly comparable (e.g.
-`select * from aws_all union all select * from gcp_all union all select * from azure_all
-union all select * from stackit_all union all select * from ovh_all union all select *
-from oracle_all union all select * from hetzner_all`). Prices are USD (STACKIT's,
-OVHcloud's and Hetzner's EUR prices are converted at the ECB reference rate).
+All seven cloud scripts write into the same `cloudspecs.duckdb` with an
+**identical 27-column schema** (same names, same order), so the clouds are
+directly comparable.
+
+`combine.py` stitches them together into four cross-cloud views, each a
+`UNION ALL` over every cloud with a leading **`cloud`** column (a static string —
+`'aws'`, `'gcp'`, …) tagging the source:
+
+| view | union of | rows |
+|------|----------|------|
+| `cloudspecs` | the per-cloud `<cloud>` comparable slices | current, priced, non-accelerator, non-shared-core instances |
+| `cloudspecs_family` | the `<cloud>_family` views | one representative instance per family |
+| `cloudspecs_accel` | the `<cloud>_accel` views | accelerator (GPU/FPGA/TPU/…) instances |
+| `cloudspecs_shared` | the `<cloud>_shared` views | shared-core / burstable-CPU instances |
+| `cloudspecs_all` | the `<cloud>_all` tables | every instance, all 27 columns |
+
+So `select * from cloudspecs_all where cloud = 'gcp'` replaces the manual
+`aws_all union all gcp_all union all …`. Prices are USD (STACKIT's, OVHcloud's
+and Hetzner's EUR prices are converted at the ECB reference rate).
 
 ## AWS — `build.py`
 
 Gathers EC2 instance data from robust sources and writes one table (`aws_all`,
-plus `benchmark`) and four views (`aws`, `aws_family`, `aws_accel`, `aws_burst`)
+plus `benchmark`) and four views (`aws`, `aws_family`, `aws_accel`, `aws_shared`)
 — identical schema to the old `cloudspecs/toduckdb.sh` output.
 
 ### Data sources
@@ -66,7 +80,7 @@ The Compute Engine counterpart to `build.py`, same style and schema. Writes a
 | `gcp_all` | every machine type — all 27 `aws_all` columns |
 | `gcp` | comparable slice: current, priced, non-shared-core, non-accelerator, non-metal, non-TPU (drops the same "strange instances" the AWS `aws` view does) |
 | `gcp_accel` | accelerator (GPU) machine types |
-| `gcp_burst` | shared-core machine types (`vcpus_base < vcpus`) |
+| `gcp_shared` | shared-core machine types (`vcpus_base < vcpus`) |
 
 GCP has **no per-machine price**: the hourly on-demand price is assembled as
 `core_rate × vCPU + ram_rate × RAM_GiB` from per-family Core/Ram SKU rates.
@@ -102,7 +116,13 @@ python gcp.py --region europe-west1  # price a different region
 Run `build.py` **first** — it recreates `cloudspecs.duckdb` from scratch — then
 `gcp.py`, `azure.py`, `stackit.py`, `ovh.py`, `oracle.py` and `hetzner.py`, which open the
 existing file and only add/replace their own `gcp_*` / `azure_*` / `stackit_*` / `ovh_*` /
-`oracle_*` / `hetzner_*` tables and views (in any order).
+`oracle_*` / `hetzner_*` tables and views (in any order). Finally run
+`combine.py` — it builds the cross-cloud `cloudspecs*` views and so must run
+**last**, once every `<cloud>_all` table and its views exist:
+
+```sh
+python combine.py                    # -> cloudspecs.duckdb (adds the cloudspecs* views)
+```
 
 ## Azure — `azure.py`
 
@@ -115,7 +135,7 @@ Writes an `azure_all` table plus four views:
 | `azure` | comparable slice: current, priced, full-vCPU (non-constrained), non-burstable (B-series), non-accelerator, non-HPC (drops the same "strange instances" the AWS `aws` view does) |
 | `azure_family` | one representative size per family |
 | `azure_accel` | GPU/accelerator (N-series) sizes, with the GPU model |
-| `azure_burst` | burstable B-series sizes |
+| `azure_shared` | burstable B-series sizes |
 
 Unlike GCP, Azure has a **direct per-VM on-demand price** (Retail Prices API) and
 rich API specs — physical cores (`vCPUsPerCore`), remote-disk throughput
@@ -171,7 +191,7 @@ schema. Writes a `stackit_all` table plus four views:
 | `stackit` | comparable slice: current, priced, non-GPU, non-burstable (drops the same "strange instances" the AWS `aws` view does) |
 | `stackit_family` | one representative flavor per family |
 | `stackit_accel` | GPU (n-series) flavors, with the GPU model |
-| `stackit_burst` | CPU-overprovisioned ("burstable") families |
+| `stackit_shared` | CPU-overprovisioned ("burstable") families |
 
 STACKIT is the simplest cloud here: **both data sources are public, no auth.** The
 flavor universe and core specs come straight from the price list; the docs page only
@@ -218,7 +238,7 @@ The OVHcloud Public Cloud counterpart to `build.py`, same style and schema. Writ
 | `ovh` | comparable slice: current, priced, dedicated-resources (non-shared, non-sandbox), non-GPU |
 | `ovh_family` | one representative flavor per family (net-efficiency window like `aws_family`) |
 | `ovh_accel` | GPU flavors, with the GPU model |
-| `ovh_burst` | sandbox / shared-vCore flavors, incl. the Discovery (d2) range — OVH's cheap tier |
+| `ovh_shared` | sandbox / shared-vCore flavors, incl. the Discovery (d2) range — OVH's cheap tier |
 
 Like STACKIT, **one public source, no auth** — and it's unusually complete. Every
 instance flavor is an entry in the OVHcloud order catalog whose `blobs.technical` carries
@@ -269,7 +289,7 @@ schema. Writes an `oracle_all` table plus four views:
 | `oracle` | comparable slice: current, priced, non-GPU, non-bare-metal, non-micro |
 | `oracle_family` | one representative shape per family (net-efficiency window like `aws_family`) |
 | `oracle_accel` | GPU shapes, with the GPU model |
-| `oracle_burst` | the Always-Free micro shape — OCI has no burstable-CPU family, so `vcpus_base` always equals `vcpus` |
+| `oracle_shared` | the Always-Free micro shape — OCI has no burstable-CPU family, so `vcpus_base` always equals `vcpus` |
 
 Like GCP, OCI has **no per-shape price**: compute is billed per *OCPU-hour* plus per
 *memory-GB-hour* (plus, for GPU shapes, per *GPU-hour*) at a rate that depends only on the
@@ -331,14 +351,14 @@ The Hetzner Cloud (VPS) counterpart to `build.py`, same style and schema. Writes
 | `hetzner` | comparable slice: current, priced, **dedicated-vCPU (CCX)** |
 | `hetzner_family` | one representative type per family |
 | `hetzner_accel` | GPU types — empty (Hetzner Cloud has no GPU servers) |
-| `hetzner_burst` | the shared-vCPU lines (CX / CPX / CAX) — Hetzner's oversubscribed tier |
+| `hetzner_shared` | the shared-vCPU lines (CX / CPX / CAX) — Hetzner's oversubscribed tier |
 
 The data source is the Hetzner Cloud API `GET /v1/server_types`, which carries every
 server type's spec (vCPU `cores`, `memory`, local-NVMe `disk`, `cpu_type` shared/dedicated,
 `architecture`) and per-location hourly prices. Unlike STACKIT/OVHcloud this API needs a
 token, so — like the Hetzner **shared** vCPU lines being oversubscribed — the comparable
 `hetzner` view keeps only the **dedicated** CCX line (the shared CX/CPX/CAX lines go to
-`hetzner_burst`, matching how STACKIT's overprovisioned and OVHcloud's shared-vCore
+`hetzner_shared`, matching how STACKIT's overprovisioned and OVHcloud's shared-vCore
 families are handled). Prices are the compute-only server price (the primary IPv4 is billed
 separately) at the low-price EU reference location fsn1 (== nbg1 / hel1; ash/hil/sin cost
 more), in EUR, converted to USD at the live ECB reference rate.

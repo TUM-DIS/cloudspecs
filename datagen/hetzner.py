@@ -30,7 +30,7 @@ Output objects (mirroring the other builds):
   hetzner_family one representative type per family (largest; net-efficiency window like
                  aws_family, degrades to largest since net_gbitps is null).
   hetzner_accel  GPU types -- empty (Hetzner Cloud has no GPU servers).
-  hetzner_burst  the shared-vCPU lines (CX / CPX / CAX) -- Hetzner's oversubscribed tier.
+  hetzner_shared  the shared-vCPU lines (CX / CPX / CAX) -- Hetzner's oversubscribed tier.
 
 Notes vs AWS: net_gbitps / net_peak_gbitps and ebs_* are always null -- Hetzner publishes
 no per-type network bandwidth, and block-storage (Volumes) throughput is per-volume, not
@@ -38,7 +38,7 @@ per-type. cores (physical) is inferred from the CPU model's SMT (Ampere Altra = 
 thread/core, Intel/AMD x86 = 2), since Hetzner publishes only vCPUs. storage_gb is the
 included local NVMe (always SSD/NVMe). accelerators is
 always 0. vcpus_base == vcpus -- shared vCPUs run at full speed (no throttled baseline);
-they are flagged via hetzner_burst, not a fractional baseline.
+they are flagged via hetzner_shared, not a fractional baseline.
 """
 
 import argparse
@@ -312,7 +312,7 @@ create view hetzner_family as
 create view hetzner_accel as
   select * from hetzner_all
   where category = 'GPU' and accelerator_model is not null;
-create view hetzner_burst as
+create view hetzner_shared as
   select * from hetzner_all where family in ({burst});
 COMMENT ON COLUMN hetzner_all.instance IS 'Hetzner Cloud server type name (e.g. cx22, ccx33)';
 COMMENT ON COLUMN hetzner_all.price_hour IS 'Reference-location (fsn1) compute hourly price in USD (server price without the separate primary IPv4, converted from EUR at the ECB reference rate)';
@@ -320,7 +320,7 @@ COMMENT ON COLUMN hetzner_all.family IS 'Server-type family: name minus the size
 COMMENT ON COLUMN hetzner_all.category IS 'Shared vCPU (CX/CPX/CAX, oversubscribed) or Dedicated vCPU (CCX)';
 COMMENT ON COLUMN hetzner_all.ram_gib IS 'Amount of main memory in GiB';
 COMMENT ON COLUMN hetzner_all.vcpus IS 'Number of vCPUs';
-COMMENT ON COLUMN hetzner_all.vcpus_base IS 'Same as vcpus (shared vCPUs run at full speed; the shared lines are flagged via hetzner_burst)';
+COMMENT ON COLUMN hetzner_all.vcpus_base IS 'Same as vcpus (shared vCPUs run at full speed; the shared lines are flagged via hetzner_shared)';
 COMMENT ON COLUMN hetzner_all.cores IS 'Physical cores inferred from the CPU: Ampere Altra (CAX) has no SMT so cores = vcpus; Intel Xeon / AMD EPYC (CX/CPX/CCX) are 2-way SMT so cores = vcpus/2';
 COMMENT ON COLUMN hetzner_all.processor_model IS 'CPU model of the family (curated; the API gives only cpu_type and architecture)';
 COMMENT ON COLUMN hetzner_all.arch IS 'Processor architecture (x86_64 or arm64)';
@@ -347,7 +347,7 @@ COMMENT ON COLUMN hetzner_all.release_year IS 'Approximate generation launch yea
 def write_duckdb(rows, shared_families, out_path):
     con = duckdb.connect(out_path)
     cols_ddl = ", ".join(f'"{n}" {t}' for n, t in COLUMNS)
-    for v in ("hetzner_family", "hetzner_accel", "hetzner_burst", "hetzner"):
+    for v in ("hetzner_family", "hetzner_accel", "hetzner_shared", "hetzner"):
         con.execute(f"drop view if exists {v}")
     con.execute("drop table if exists hetzner_all cascade")
     con.execute(f"create table hetzner_all ({cols_ddl})")
@@ -357,7 +357,7 @@ def write_duckdb(rows, shared_families, out_path):
     con.execute(views_sql(shared_families))
     counts = {
         v: con.execute(f"select count(*) from {v}").fetchone()[0]
-        for v in ("hetzner_all", "hetzner", "hetzner_family", "hetzner_accel", "hetzner_burst")
+        for v in ("hetzner_all", "hetzner", "hetzner_family", "hetzner_accel", "hetzner_shared")
     }
     con.close()
     print("Wrote " + out_path)

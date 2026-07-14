@@ -44,7 +44,7 @@ Output objects (mirroring the AWS/GCP/Azure/STACKIT/OVHcloud builds):
   oracle        comparable slice: current, priced, non-GPU, non-bare-metal, non-micro.
   oracle_family one representative shape per family (net-efficiency window like aws_family).
   oracle_accel  GPU shapes, with the GPU model.
-  oracle_burst  the free-tier micro shapes -- OCI's cheap/limited tier (OCI has no
+  oracle_shared  the free-tier micro shapes -- OCI's cheap/limited tier (OCI has no
                 burstable-CPU family, so vcpus_base always equals vcpus).
 
 Notes vs AWS: price is assembled (see above), so it is exact for the reference region but
@@ -137,7 +137,7 @@ FIXED = [
      8, 4, 32.0, 2.8, "General purpose", 2018.0, False, "B90425", 4),
     ("VM.Standard.E2.8", "VM.Standard.E2", "AMD EPYC 7551 (Naples)", "x86_64",
      16, 8, 64.0, 5.6, "General purpose", 2018.0, False, "B90425", 8),
-    # Always Free micro shape -- priced at $0 (free-tier SKU); isolated in oracle_burst.
+    # Always Free micro shape -- priced at $0 (free-tier SKU); isolated in oracle_shared.
     ("VM.Standard.E2.1.Micro", "VM.Standard.E2.Micro", "AMD EPYC 7551 (Naples)", "x86_64",
      2, 1, 1.0, 0.48, "General purpose", 2019.0, False, "B91444", 1),
     ("VM.Standard2.1", "VM.Standard2", "Intel Xeon Platinum 8167M (Skylake)", "x86_64",
@@ -440,7 +440,7 @@ create view oracle_family as
 create view oracle_accel as
   select * from oracle_all
   where category = 'GPU' and accelerator_model is not null;
-create view oracle_burst as
+create view oracle_shared as
   select * from oracle_all where family in ({burst});
 COMMENT ON COLUMN oracle_all.instance IS 'OCI shape name; flexible shapes carry a ".<OCPUs>-<GB>" size suffix (e.g. VM.Standard.E5.Flex.8-128), enumerated at three memory ratios per OCPU count';
 COMMENT ON COLUMN oracle_all.price_hour IS 'Reference-region Linux hourly on-demand price in USD, assembled from the family OCPU-hour + memory-GB-hour (+ GPU-hour) catalog rates';
@@ -475,7 +475,7 @@ COMMENT ON COLUMN oracle_all.release_year IS 'Approximate family GA year (curate
 def write_duckdb(rows, burst_families, out_path):
     con = duckdb.connect(out_path)
     cols_ddl = ", ".join(f'"{n}" {t}' for n, t in COLUMNS)
-    for v in ("oracle_family", "oracle_accel", "oracle_burst", "oracle"):
+    for v in ("oracle_family", "oracle_accel", "oracle_shared", "oracle"):
         con.execute(f"drop view if exists {v}")
     con.execute("drop table if exists oracle_all cascade")
     con.execute(f"create table oracle_all ({cols_ddl})")
@@ -485,7 +485,7 @@ def write_duckdb(rows, burst_families, out_path):
     con.execute(views_sql(burst_families))
     counts = {
         v: con.execute(f"select count(*) from {v}").fetchone()[0]
-        for v in ("oracle_all", "oracle", "oracle_family", "oracle_accel", "oracle_burst")
+        for v in ("oracle_all", "oracle", "oracle_family", "oracle_accel", "oracle_shared")
     }
     con.close()
     print("Wrote " + out_path)

@@ -33,14 +33,14 @@ Output objects (mirroring the AWS/GCP/Azure builds):
   stackit_family one representative flavor per family (largest, net-efficiency
                  window like aws_family -- degrades to largest since net_gbitps is null).
   stackit_accel  GPU (n-series) flavors, with the GPU model.
-  stackit_burst  CPU-overprovisioned ("burstable") families.
+  stackit_shared  CPU-overprovisioned ("burstable") families.
 
 Notes vs AWS: net_gbitps / net_peak_gbitps and ebs_* are always null -- STACKIT
 publishes no per-flavor network- or block-storage-throughput figures. processor_model
 is the CPU microarchitecture (coarse vendor fallback where the docs omit a family).
 release_year is the CPU generation's launch year (a proxy; STACKIT publishes no GA
 date). vcpus_base == vcpus (no fractional-baseline burst model; overprovisioned
-families are flagged via stackit_burst instead).
+families are flagged via stackit_shared instead).
 """
 
 import argparse
@@ -386,7 +386,7 @@ create view stackit_family as
 create view stackit_accel as
   select * from stackit_all
   where category = 'GPU' and accelerator_model is not null;
-create view stackit_burst as
+create view stackit_shared as
   select * from stackit_all where family in ({burst});
 COMMENT ON COLUMN stackit_all.instance IS 'STACKIT flavor name (e.g. c2i.4)';
 COMMENT ON COLUMN stackit_all.price_hour IS 'eu01 on-demand price per hour in USD (converted from the EUR price list at the ECB reference rate)';
@@ -394,7 +394,7 @@ COMMENT ON COLUMN stackit_all.family IS 'Flavor family: flavor name minus the si
 COMMENT ON COLUMN stackit_all.category IS 'Category from the variant letter / CPU:RAM ratio (General purpose, Compute optimized, Memory optimized, GPU)';
 COMMENT ON COLUMN stackit_all.ram_gib IS 'Amount of main memory in GiB';
 COMMENT ON COLUMN stackit_all.vcpus IS 'Number of vCPUs';
-COMMENT ON COLUMN stackit_all.vcpus_base IS 'Same as vcpus (STACKIT publishes no fractional baseline; overprovisioned families are in stackit_burst)';
+COMMENT ON COLUMN stackit_all.vcpus_base IS 'Same as vcpus (STACKIT publishes no fractional baseline; overprovisioned families are in stackit_shared)';
 COMMENT ON COLUMN stackit_all.cores IS 'Physical cores (ARM = 1 thread/core, x86 = 2 threads/core)';
 COMMENT ON COLUMN stackit_all.processor_model IS 'CPU microarchitecture (from the docs; coarse vendor where a family is undocumented)';
 COMMENT ON COLUMN stackit_all.arch IS 'Processor architecture';
@@ -421,7 +421,7 @@ COMMENT ON COLUMN stackit_all.release_year IS 'Always NULL -- not published';
 def write_duckdb(rows, burst_families, out_path):
     con = duckdb.connect(out_path)
     cols_ddl = ", ".join(f'"{n}" {t}' for n, t in COLUMNS)
-    for v in ("stackit_family", "stackit_accel", "stackit_burst", "stackit"):
+    for v in ("stackit_family", "stackit_accel", "stackit_shared", "stackit"):
         con.execute(f"drop view if exists {v}")
     con.execute("drop table if exists stackit_all cascade")
     con.execute(f"create table stackit_all ({cols_ddl})")
@@ -431,7 +431,7 @@ def write_duckdb(rows, burst_families, out_path):
     con.execute(views_sql(burst_families))
     counts = {
         v: con.execute(f"select count(*) from {v}").fetchone()[0]
-        for v in ("stackit_all", "stackit", "stackit_family", "stackit_accel", "stackit_burst")
+        for v in ("stackit_all", "stackit", "stackit_family", "stackit_accel", "stackit_shared")
     }
     con.close()
     print("Wrote " + out_path)
