@@ -27,13 +27,17 @@ flavors).
 
 Output objects (mirroring the AWS/GCP/Azure/STACKIT builds):
   ovh_all    every flavor, all 27 aws_all columns.
-  ovh        comparable slice: current, priced, guaranteed-resources (non-sandbox),
-             non-GPU.
+  ovh        comparable slice: current, priced, dedicated-resources (non-shared,
+             non-sandbox), non-GPU.
   ovh_family one representative flavor per family (net-efficiency window like aws_family).
   ovh_accel  GPU flavors, with the GPU model.
-  ovh_burst  sandbox / shared-vCore (non-guaranteed) flavors -- OVH's cheap tier.
+  ovh_burst  sandbox / shared-vCore flavors, incl. the Discovery (d2) range -- OVH's cheap
+             tier.
 
-Notes vs AWS: cores is null (OVH publishes vCores = vcpus, not a physical-core count).
+Notes vs AWS: cores is the physical-core count. OVH publishes vCores (= vcpus); on its
+x86_64 hosts a vCore is one hardware thread of a 2-way-hyperthreaded (SMT) core, so
+cores = vcpus / 2. Bare-metal flavors are the exception -- the catalog reports their real
+physical cores and threads directly (e.g. 16C/32T), so vcpus = threads and cores = cores.
 processor_model is the CPU model where the catalog names one (bare metal) or a curated
 per-family value, else null (standard flavors report a generic "vCore"). release_year is
 approximate (curated per-family GA year). ebs_* is null -- OVH block-storage throughput
@@ -168,6 +172,26 @@ def _family(name):
     return re.sub(r"-\d+$", "", name)
 
 
+def _cpu_topology(cpu):
+    """(vcpus, cores) for a flavor's catalog `cpu` blob.
+
+    Standard and GPU flavors report a generic "vCore" count in cpu.cores (cpu.type ==
+    "vCore"). Those vCores are hardware threads on OVHcloud's x86_64 hosts, which run 2-way
+    hyperthreading (SMT) -- so the flavor's vCPU count is that vCore count and its physical-
+    core count is half of it (ceil: a lone thread still occupies a full core).
+
+    Bare-metal flavors (cpu.type == "core") are the whole physical machine, and the catalog
+    reports the real physical `cores` and total `threads` (also 2-way SMT, e.g. 16C/32T), so
+    vcpus = threads and cores = cores directly.
+    """
+    if (cpu.get("type") or "").lower() == "core":
+        cores = int(cpu.get("cores") or 0)
+        vcpus = int(cpu.get("threads") or 0) or cores
+        return vcpus, (cores or None)
+    vcpus = int(cpu.get("cores") or 0)
+    return vcpus, ((vcpus + 1) // 2 if vcpus else None)
+
+
 def _processor(cpu_model, family):
     """Real catalog CPU model (bare metal) if given, else the curated per-family value."""
     if cpu_model and cpu_model != "vCore":
@@ -250,7 +274,7 @@ def build_rows(catalog, rate):
         fam = _family(name)
         brick = comm.get("brick")
         gpu = tech.get("gpu")
-        vcpus = int(cpu.get("cores") or 0)
+        vcpus, cores = _cpu_topology(cpu)
         bw = ((tech.get("bandwidth") or {}).get("level") or 0) / 1000.0 or None
         s_gb, s_cnt, s_ssd, s_nvme, s_iops = _storage(tech.get("storage"))
 
@@ -258,8 +282,11 @@ def build_rows(catalog, rate):
             category = "GPU"
         else:
             category = CATEGORY_BY_SUBTYPE.get(comm.get("brickSubtype")) or "General purpose"
-        # non-guaranteed (sandbox / shared vCore) families -> the "burst" tier.
-        if not gpu and brick != "guaranteed-resources":
+        # non-guaranteed (sandbox / shared vCore) families -> the "burst" tier. The Discovery
+        # (d2) range is shared-resources too -- the catalog still tags it guaranteed-resources,
+        # but OVH markets it as shared -- so catch it via its "discovery" brick subtype.
+        if not gpu and (brick != "guaranteed-resources"
+                        or comm.get("brickSubtype") == "discovery"):
             burst_families.add(fam)
 
         acc_model, acc_per = _accelerator(gpu) if gpu else (None, None)
@@ -273,7 +300,7 @@ def build_rows(catalog, rate):
             float(mem.get("size") or 0),                   # ram_gib
             vcpus,                                          # vcpus
             float(vcpus),                                  # vcpus_base
-            None,                                          # cores (OVH gives vCores only)
+            cores,                                         # cores (physical; vCore = HT thread)
             _processor(cpu.get("model"), fam),             # processor_model
             "x86_64",                                      # arch (all OVH flavors are x86)
             bw, bw,                                         # net_gbitps / net_peak_gbitps
@@ -323,9 +350,9 @@ COMMENT ON COLUMN ovh_all.price_hour IS 'Standard-region Linux hourly on-demand 
 COMMENT ON COLUMN ovh_all.family IS 'Flavor family: flavor name minus the "-<size>" suffix (b3-8 -> b3, t1-le-45 -> t1-le)';
 COMMENT ON COLUMN ovh_all.category IS 'Category from the catalog brick subtype (General purpose, Compute optimized, Memory optimized, Storage optimized, Bare metal, GPU)';
 COMMENT ON COLUMN ovh_all.ram_gib IS 'Amount of main memory in GiB';
-COMMENT ON COLUMN ovh_all.vcpus IS 'Number of vCPUs (OVH vCores)';
+COMMENT ON COLUMN ovh_all.vcpus IS 'Number of vCPUs (OVH vCores = hardware threads; bare-metal flavors expose all host threads)';
 COMMENT ON COLUMN ovh_all.vcpus_base IS 'Same as vcpus';
-COMMENT ON COLUMN ovh_all.cores IS 'Always NULL -- OVH publishes vCores (= vcpus), not a physical-core count';
+COMMENT ON COLUMN ovh_all.cores IS 'Physical cores: OVH vCores are hardware threads on 2-way-hyperthreaded x86_64 hosts, so cores = vcpus/2 (ceil); bare-metal flavors report real physical cores (catalog gives cores + threads, e.g. 16C/32T)';
 COMMENT ON COLUMN ovh_all.processor_model IS 'CPU model where the catalog names one (bare metal) or a curated per-family value; NULL for standard flavors (catalog reports generic "vCore")';
 COMMENT ON COLUMN ovh_all.arch IS 'Processor architecture (all OVH public-cloud flavors are x86_64)';
 COMMENT ON COLUMN ovh_all.net_gbitps IS 'Guaranteed public-network bandwidth in Gbit/s';

@@ -215,10 +215,10 @@ The OVHcloud Public Cloud counterpart to `build.py`, same style and schema. Writ
 | Object | Contents |
 |--------|----------|
 | `ovh_all` | every flavor — all 27 `aws_all` columns |
-| `ovh` | comparable slice: current, priced, guaranteed-resources (non-sandbox), non-GPU |
+| `ovh` | comparable slice: current, priced, dedicated-resources (non-shared, non-sandbox), non-GPU |
 | `ovh_family` | one representative flavor per family (net-efficiency window like `aws_family`) |
 | `ovh_accel` | GPU flavors, with the GPU model |
-| `ovh_burst` | sandbox / shared-vCore (non-guaranteed) flavors — OVH's cheap tier |
+| `ovh_burst` | sandbox / shared-vCore flavors, incl. the Discovery (d2) range — OVH's cheap tier |
 
 Like STACKIT, **one public source, no auth** — and it's unusually complete. Every
 instance flavor is an entry in the OVHcloud order catalog whose `blobs.technical` carries
@@ -234,7 +234,11 @@ converted to **USD** at the live ECB reference rate.
 | EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
 | Family, category, CPU model, release year | derived / curated in `ovh.py` | — |
 
-`cores` is NULL (OVH publishes vCores = `vcpus`, not a physical-core count). `ebs_*` is
+`cores` (physical) is inferred from the CPU's SMT: OVH publishes vCores, and on its
+x86_64 hosts a vCore is one hardware thread of a 2-way-hyperthreaded core, so
+`cores = vcpus/2` (ceil). Bare-metal flavors are the exception — the catalog reports their
+real physical cores and threads directly (e.g. 16C/32T), so `vcpus = threads` and
+`cores = cores`. `ebs_*` is
 NULL (block-storage throughput is per-volume, not per-flavor). `processor_model` is
 populated only for bare-metal flavors (which name a real CPU) and a curated per-family
 table; standard flavors report a generic "vCore". `release_year` is an approximate
