@@ -253,7 +253,7 @@ def _accel(name):
     if "_H100" in n:                                   # NC*=NVL 94GB, ND*=SXM 80GB
         return ("NVIDIA H100 NVL", 94) if n.startswith("Standard_NC") else ("NVIDIA H100 SXM", 80)
     if "_A100" in n:
-        return "NVIDIA A100 80GB", 80
+        return "NVIDIA A100", 80
     if "_A10" in n:
         return "NVIDIA A10", 24
     if "_T4" in n:
@@ -261,9 +261,9 @@ def _accel(name):
     if n.startswith("Standard_NC") and n.endswith("_v3"):
         return "NVIDIA Tesla V100", 16
     if n.startswith("Standard_ND") and n.endswith("_v4"):    # ND96asr_v4 = A100 40GB
-        return "NVIDIA A100 40GB", 40
+        return "NVIDIA A100", 40
     if n.startswith("Standard_ND") and n.endswith("_v2"):    # ND40rs_v2 = V100 32GB
-        return "NVIDIA Tesla V100 32GB", 32
+        return "NVIDIA Tesla V100", 32
     if n.startswith("Standard_NV") and (n.endswith("_v2") or n.endswith("_v3")):
         return "NVIDIA Tesla M60", 8
     if n.startswith("Standard_NV") and n.endswith("_v4"):    # NV*as_v4 = AMD MI25
@@ -612,7 +612,7 @@ COMMENT ON COLUMN azure_all.ebs_gbitps IS 'Max uncached remote data-disk bandwid
 COMMENT ON COLUMN azure_all.ebs_peak_iops IS 'Same as ebs_iops (Azure gives one max value, no baseline/peak split)';
 COMMENT ON COLUMN azure_all.ebs_peak_gbitps IS 'Same as ebs_gbitps (see ebs_peak_iops)';
 COMMENT ON COLUMN azure_all.accelerators IS 'Number of attached accelerators (GPUs/FPGAs); partitioned-GPU slices (NVv4, NVadsA10v5) count as 1';
-COMMENT ON COLUMN azure_all.accelerator_model IS 'Accelerator model (best-effort, from the size name)';
+COMMENT ON COLUMN azure_all.accelerator_model IS 'Accelerator model (best-effort, from the size name; memory variants like A100 40/80GB share a name -- see accelerator_gib)';
 COMMENT ON COLUMN azure_all.accelerator_gib IS 'Total accelerator memory (nominal GB, best-effort); the slice memory on partitioned-GPU sizes';
 COMMENT ON COLUMN azure_all.is_current IS 'Whether the size is current (not promotional / not past its retirement date)';
 COMMENT ON COLUMN azure_all.storage_read_iops IS 'Local NVMe disk random read IOPS (NULL for temp-disk-only sizes)';

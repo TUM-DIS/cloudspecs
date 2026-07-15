@@ -225,25 +225,25 @@ GPU = [
     ("BM.GPU.A10.4", "BM.GPU.A10", "Intel Xeon Platinum 8358", "x86_64", 128, 64, 1024.0,
      "NVIDIA A10", 4, 24.0, 100.0, 7680, 2, 2022.0, True, "B95909"),
     ("BM.GPU4.8", "BM.GPU4", "AMD EPYC 7542 (Rome)", "x86_64", 128, 64, 2048.0,
-     "NVIDIA A100 40GB", 8, 40.0, 50.0, 27200, 4, 2021.0, False, "B92740"),
+     "NVIDIA A100", 8, 40.0, 50.0, 27200, 4, 2021.0, False, "B92740"),
     ("BM.GPU.A100-v2.8", "BM.GPU.A100-v2", "AMD EPYC 7J13 (Milan)", "x86_64", 256, 128,
-     2048.0, "NVIDIA A100 80GB", 8, 80.0, 100.0, 27200, 4, 2022.0, True, "B95907"),
+     2048.0, "NVIDIA A100", 8, 80.0, 100.0, 27200, 4, 2022.0, True, "B95907"),
     ("BM.GPU.L40S.4", "BM.GPU.L40S", "Intel Xeon 8480+ (Sapphire Rapids)", "x86_64",
      224, 112, 1024.0, "NVIDIA L40S", 4, 48.0, 200.0, 7680, 2, 2024.0, True, "B109479"),
     ("BM.GPU.H100.8", "BM.GPU.H100", "Intel Xeon 8480+ (Sapphire Rapids)", "x86_64",
-     224, 112, 2048.0, "NVIDIA H100 80GB", 8, 80.0, 100.0, 61440, 16, 2023.0, True,
+     224, 112, 2048.0, "NVIDIA H100", 8, 80.0, 100.0, 61440, 16, 2023.0, True,
      "B98415"),
     ("BM.GPU.H200.8", "BM.GPU.H200", "Intel Xeon 8480+ (Sapphire Rapids)", "x86_64",
-     224, 112, 3072.0, "NVIDIA H200 141GB", 8, 141.0, 200.0, 30720, 8, 2024.0, True,
+     224, 112, 3072.0, "NVIDIA H200", 8, 141.0, 200.0, 30720, 8, 2024.0, True,
      "B110519"),
     ("BM.GPU.MI300X.8", "BM.GPU.MI300X", "Intel Xeon 8480+ (Sapphire Rapids)", "x86_64",
      224, 112, 2048.0, "AMD Instinct MI300X", 8, 192.0, 100.0, 30720, 8, 2024.0, True,
      "B109485"),
     ("BM.GPU.B200.8", "BM.GPU.B200", "Intel Xeon 8592+ (Emerald Rapids)", "x86_64",
-     256, 128, 4096.0, "NVIDIA B200 180GB", 8, 180.0, 400.0, 30720, 8, 2025.0, True,
+     256, 128, 4096.0, "NVIDIA B200", 8, 180.0, 400.0, 30720, 8, 2025.0, True,
      "B110978"),
     ("BM.GPU.GB200.4", "BM.GPU.GB200", "NVIDIA Grace (Arm)", "arm64", 144, 144, 960.0,
-     "NVIDIA GB200 192GB", 4, 192.0, 400.0, 30720, 4, 2025.0, True, "B110979"),
+     "NVIDIA GB200", 4, 192.0, 400.0, 30720, 4, 2025.0, True, "B110979"),
 ]
 
 
@@ -463,7 +463,7 @@ COMMENT ON COLUMN oracle_all.ebs_gbitps IS 'Always NULL (see ebs_iops)';
 COMMENT ON COLUMN oracle_all.ebs_peak_iops IS 'Always NULL (see ebs_iops)';
 COMMENT ON COLUMN oracle_all.ebs_peak_gbitps IS 'Always NULL (see ebs_iops)';
 COMMENT ON COLUMN oracle_all.accelerators IS 'Number of attached GPUs';
-COMMENT ON COLUMN oracle_all.accelerator_model IS 'GPU model (curated)';
+COMMENT ON COLUMN oracle_all.accelerator_model IS 'GPU model (curated; memory variants like A100 40/80GB share a name -- see accelerator_gib)';
 COMMENT ON COLUMN oracle_all.accelerator_gib IS 'Total GPU memory in GiB';
 COMMENT ON COLUMN oracle_all.is_current IS 'Whether the shape is a current generation (legacy families marked false)';
 COMMENT ON COLUMN oracle_all.storage_read_iops IS 'Local NVMe random read IOPS (DenseIO; curated)';
