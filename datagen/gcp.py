@@ -8,7 +8,12 @@ Linux on-demand price in one lowest-price-tier region (us-central1), and writes 
 clouds are directly comparable.
 
 Output objects (mirroring the AWS build):
-  gcp_all    every machine type, all 27 aws_all columns.
+  gcp_all    every machine type, all 27 aws_all columns. Machine types that
+             support per-VM Tier_1 networking appear TWICE: once as the default
+             configuration and once as a "<name>-tier1" row carrying the Tier_1
+             egress bandwidth and the Tier_1 hourly fee added to price_hour
+             (Tier_1 is an opt-in paid config, so folding its bandwidth into
+             net_peak_gbitps of the default row would understate its price).
   gcp        comparable slice: current, priced, non-shared-core, non-accelerator,
              non-metal, non-TPU (the same "strange instances" the AWS aws view drops).
   gcp_family one representative machine type per family (largest, or 2nd-largest if
@@ -28,6 +33,11 @@ Data sources:
        cost (accelerators * gpu_rate) where those SKUs exist.
   3. GCP machine-family docs (cloud.google.com/compute/docs/*-machines) ->
        per-machine-type default & Tier_1 egress bandwidth (Gbps).
+  4. GCP pricing page (cloud.google.com/products/compute/pricing/general-purpose)
+       -> per-family Tier_1 networking hourly fee. The billing catalog cannot
+       price Tier_1: its per-region SKUs don't carry the per-family / per-level
+       fee differences the published tables show. The page's static tables list
+       us-central1 prices, so Tier_1 rows are only emitted for that region.
 
 Derived / static: physical cores (vCPU / threads-per-core), local-SSD IOPS
 (partition count x per-partition NVMe rate), vcpus_base (shared-core baseline),
@@ -84,6 +94,13 @@ MACHINE_DOC_PAGES = [
     "memory-optimized-machines", "accelerator-optimized-machines",
     "storage-optimized-machines",
 ]
+
+# Per-family Tier_1 networking fees live only on this pricing page (its "Tier_1
+# higher bandwidth network pricing" section covers all supported series, incl.
+# the compute-optimized and M3 ones). The static tables show us-central1 prices.
+TIER1_PRICING_URL = "https://cloud.google.com/products/compute/pricing/general-purpose"
+TIER1_PRICING_REGION = "us-central1"
+TIER1_SECTION_ID = 'id="tier-1-higher-bandwidth-network-pricing"'
 
 # GCP bundled local SSD (cloud.google.com/compute/docs/disks/local-ssd).
 # The API's bundledLocalSsds.partitionCount is the physical disk count. Physical
@@ -534,6 +551,76 @@ def fetch_network():
 
 
 # --------------------------------------------------------------------------- #
+# Tier_1 networking fees (pricing page)
+# --------------------------------------------------------------------------- #
+_TIER1_FAM_RE = re.compile(r"\b([A-Z]\d+[A-Z]?)\b")   # N2, N2D, C4A ... in "(N2, N2D ...)"
+
+
+def fetch_tier1_fees():
+    """Return {series: {gbps: [(min_vcpus, usd_hour), ...]}} scraped from the
+    "Tier_1 higher bandwidth network pricing" section of the GCP pricing page
+    (us-central1 list prices). Fee rows are either flat per bandwidth level
+    ("50 Gbps" -> $/hour, within a per-series sub-section) or carry an explicit
+    series list ("50 Gbps (N2, N2D, C2, C2D, M3)") or a vCPU-size split
+    ("50 Gbps (32vCPU)" vs "(48vCPU)" for C4A)."""
+    print("Scraping Tier_1 networking fees from the GCP pricing page ...")
+    try:
+        html = _doc_get(TIER1_PRICING_URL)
+    except Exception as e:
+        print(f"  WARNING: {TIER1_PRICING_URL} failed ({e}); no Tier_1 rows")
+        return {}
+    i = html.find(TIER1_SECTION_ID)
+    if i < 0:
+        print("  WARNING: Tier_1 pricing section not found; no Tier_1 rows")
+        return {}
+    # the section runs from its own <h2> heading to the page's next <h2>
+    own_h2 = html.find("<h2", i)
+    end = html.find("<h2", own_h2 + 1)
+    soup = BeautifulSoup(html[i:end if end > 0 else len(html)], "html.parser")
+
+    fees = {}
+    current = None                        # series of the enclosing sub-section
+    for el in soup.find_all(["p", "tr"]):
+        if el.name == "p":                # "The cost of using Tier_1 networking with C3 ..."
+            m = re.search(r"Tier_1 networking with ([A-Z0-9]+)", el.get_text(" ", strip=True))
+            if m:
+                current = [m.group(1).lower()]
+            continue
+        cells = [c.get_text(" ", strip=True) for c in el.find_all(["td", "th"])]
+        # hourly fee rows only (each table also has a "/ 1 month" toggle twin)
+        if len(cells) != 2 or "/ 1 hour" not in cells[1]:
+            continue
+        m = re.match(r"(\d+)\s*Gbps\s*(?:\(([^)]*)\))?", cells[0])
+        pm = re.search(r"\$([\d.]+)", cells[1])
+        if not m or not pm:
+            continue
+        gbps, paren, price = int(m.group(1)), m.group(2) or "", float(pm.group(1))
+        vm = re.match(r"(\d+)\s*vCPU", paren)
+        if vm:                            # size-split fee within the current series
+            series, min_vcpus = current, int(vm.group(1))
+        elif paren:                       # explicit series list, "only" suffix ok
+            series, min_vcpus = [f.lower() for f in _TIER1_FAM_RE.findall(paren)], 0
+        else:
+            series, min_vcpus = current, 0
+        for s in series or []:
+            fees.setdefault(s, {}).setdefault(gbps, []).append((min_vcpus, price))
+    for levels in fees.values():
+        for v in levels.values():
+            v.sort()
+    print(f"  Tier_1 fees for {len(fees)} series: {', '.join(sorted(fees))}")
+    return fees
+
+
+def _tier1_fee(fees, series, gbps, vcpus):
+    """Hourly Tier_1 fee for a machine type, or None if not published."""
+    best = None
+    for min_vcpus, price in fees.get(series, {}).get(gbps, ()):
+        if vcpus >= min_vcpus:
+            best = price
+    return best
+
+
+# --------------------------------------------------------------------------- #
 # Pricing (Cloud Billing Catalog API)
 # --------------------------------------------------------------------------- #
 def _hourly_rate(sku):
@@ -640,11 +727,13 @@ COLUMNS = [
 ]
 
 
-def build_rows(specs, net, core_rates, ram_rates, ssd_rates, gpu_rates, region):
+def build_rows(specs, net, core_rates, ram_rates, ssd_rates, gpu_rates, tier1_fees, region):
     rows = []
     no_price = []
     gpu_priced = 0
     gpu_unpriced = []
+    n_tier1 = 0
+    tier1_no_fee = set()
     for name in sorted(specs):
         s = specs[name]
         key = _instance_key(name)
@@ -674,43 +763,62 @@ def build_rows(specs, net, core_rates, ram_rates, ssd_rates, gpu_rates, region):
             no_price.append(name)
 
         net_base, net_tier1 = net.get(name, (None, None))
-        net_peak = net_tier1 if net_tier1 is not None else net_base
 
-        rows.append((
-            name,
-            s["family"],
-            s["category"],
-            price,
-            s["ram_gib"],
-            s["vcpus"],
-            s["vcpus_base"],
-            s["cores"],
-            s["processor_model"],
-            s["arch"],
-            net_base,
-            net_peak,
-            s["storage_gb"],
-            s["storage_count"],
-            s["storage_is_ssd"],
-            s["storage_is_nvme"],
-            None,  # ebs_iops        -- GCP Hyperdisk is provisioned per-disk,
-            None,  # ebs_gbitps         no published per-machine-type cap
-            None,  # ebs_peak_iops
-            None,  # ebs_peak_gbitps
-            s["accelerators"],
-            ACCEL_MODEL.get(s["accelerator_model"], s["accelerator_model"]),
-            s["accelerator_gib"],
-            s["is_current"],
-            s["storage_read_iops"],
-            s["storage_write_iops"],
-            s["release_year"],
-        ))
+        def _row(instance, family, row_price, gbps):
+            # GCP publishes a single egress cap per config (no burst), so
+            # net_gbitps == net_peak_gbitps within a row; the Tier_1 config is
+            # a separate row, not this row's peak.
+            return (
+                instance,
+                family,
+                s["category"],
+                row_price,
+                s["ram_gib"],
+                s["vcpus"],
+                s["vcpus_base"],
+                s["cores"],
+                s["processor_model"],
+                s["arch"],
+                gbps,
+                gbps,
+                s["storage_gb"],
+                s["storage_count"],
+                s["storage_is_ssd"],
+                s["storage_is_nvme"],
+                None,  # ebs_iops        -- GCP Hyperdisk is provisioned per-disk,
+                None,  # ebs_gbitps         no published per-machine-type cap
+                None,  # ebs_peak_iops
+                None,  # ebs_peak_gbitps
+                s["accelerators"],
+                ACCEL_MODEL.get(s["accelerator_model"], s["accelerator_model"]),
+                s["accelerator_gib"],
+                s["is_current"],
+                s["storage_read_iops"],
+                s["storage_write_iops"],
+                s["release_year"],
+            )
+
+        rows.append(_row(name, s["family"], price, net_base))
+        # opt-in per-VM Tier_1 networking: a second "<name>-tier1" row with the
+        # Tier_1 bandwidth and the published hourly fee added to the price
+        if net_tier1 is not None and net_tier1 > (net_base or 0):
+            fee = _tier1_fee(tier1_fees, name.split("-")[0], int(round(net_tier1)), s["vcpus"])
+            if fee is None:
+                tier1_no_fee.add(name.split("-")[0])
+            elif price is not None:
+                rows.append(_row(name + "-tier1", s["family"] + "-tier1",
+                                 price + fee, net_tier1))
+                n_tier1 += 1
     if no_price:
         print(f"  NOTE: {len(no_price)} machine types have no on-demand core/ram "
               f"rate in {region} (price null): {', '.join(no_price[:20])}"
               + (" ..." if len(no_price) > 20 else ""))
     n_net = sum(1 for r in rows if r[10] is not None)
-    print(f"  network bandwidth matched for {n_net}/{len(rows)} machine types")
+    print(f"  network bandwidth matched for {n_net}/{len(rows)} rows")
+    print(f"  {n_tier1} Tier_1 networking variants emitted as extra '-tier1' rows")
+    if tier1_no_fee:
+        print(f"  NOTE: no published Tier_1 fee for {', '.join(sorted(tier1_no_fee))}; "
+              f"their Tier_1 rows are not emitted")
     print(f"  {gpu_priced} accelerator machine types priced all-in (CPU+RAM+GPU)")
     if gpu_unpriced:
         print(f"  NOTE: {len(gpu_unpriced)} accelerator types have no on-demand GPU "
@@ -746,19 +854,19 @@ create view gcp_accel as
   where category = 'Accelerator optimized' and accelerator_model is not null;
 create view gcp_shared as
   select * from gcp_all where vcpus_base != vcpus;
-COMMENT ON COLUMN gcp_all.price_hour IS 'us-central1 (lowest-price tier) Linux on-demand price per hour in USD, all-in: CPU + RAM + bundled local SSD + attached GPUs (null when a component has no on-demand SKU in the region)';
+COMMENT ON COLUMN gcp_all.price_hour IS 'us-central1 (lowest-price tier) Linux on-demand price per hour in USD, all-in: CPU + RAM + bundled local SSD + attached GPUs (null when a component has no on-demand SKU in the region); -tier1 rows additionally include the hourly Tier_1 networking fee';
 COMMENT ON COLUMN gcp_all.processor_model IS 'Family CPU platform (coarser than an exact model; NULL / "variable" where a family spans platforms)';
 COMMENT ON COLUMN gcp_all.vcpus_base IS 'Baseline vCPUs; shared-core machines run below vcpus';
 COMMENT ON COLUMN gcp_all.ebs_iops IS 'Always NULL: GCP Hyperdisk is provisioned per-disk, no per-machine-type cap';
-COMMENT ON COLUMN gcp_all.instance IS 'Full name of the machine type (e.g., c4a-standard-4)';
-COMMENT ON COLUMN gcp_all.family IS 'Machine family: name minus the size token, keeping the shape/memory-ratio (e.g. c2-standard-30 -> c2-standard, z3-highmem-14-standardlssd -> z3-highmem-standardlssd)';
+COMMENT ON COLUMN gcp_all.instance IS 'Full name of the machine type (e.g., c4a-standard-4); a -tier1 suffix marks the same machine type with opt-in per-VM Tier_1 networking (higher bandwidth, higher price)';
+COMMENT ON COLUMN gcp_all.family IS 'Machine family: name minus the size token, keeping the shape/memory-ratio (e.g. c2-standard-30 -> c2-standard, z3-highmem-14-standardlssd -> z3-highmem-standardlssd); Tier_1 rows form their own -tier1 family';
 COMMENT ON COLUMN gcp_all.category IS 'Machine category (e.g. General purpose, Compute optimized, Accelerator optimized)';
 COMMENT ON COLUMN gcp_all.ram_gib IS 'Amount of main memory in GiB';
 COMMENT ON COLUMN gcp_all.vcpus IS 'Number of vCPUs (hyperthreads)';
 COMMENT ON COLUMN gcp_all.cores IS 'Number of physical cores (vCPUs / threads-per-core; NULL for shared-core)';
 COMMENT ON COLUMN gcp_all.arch IS 'Processor architecture';
-COMMENT ON COLUMN gcp_all.net_gbitps IS 'Default egress network bandwidth in Gbit/s';
-COMMENT ON COLUMN gcp_all.net_peak_gbitps IS 'Peak (Tier_1) egress network bandwidth in Gbit/s';
+COMMENT ON COLUMN gcp_all.net_gbitps IS 'Egress network bandwidth in Gbit/s of this configuration (default, or Tier_1 on -tier1 rows)';
+COMMENT ON COLUMN gcp_all.net_peak_gbitps IS 'Equals net_gbitps: GCP publishes a single egress cap per configuration (no burst); the paid Tier_1 config is a separate -tier1 row, not this row''s peak';
 COMMENT ON COLUMN gcp_all.storage_gb IS 'Bundled local SSD storage in GB (NULL when none); physical disk is 375 GiB except Z3/bare-metal which use 3-6 TiB disks';
 COMMENT ON COLUMN gcp_all.storage_count IS 'Number of physical bundled local SSD disks';
 COMMENT ON COLUMN gcp_all.storage_is_ssd IS 'Whether bundled storage is SSD';
@@ -816,10 +924,17 @@ def main():
 
     specs = fetch_machine_specs(token, creds["project_id"], args.region)
     net = fetch_network()
+    if args.region == TIER1_PRICING_REGION:
+        tier1_fees = fetch_tier1_fees()
+    else:
+        print(f"NOTE: Tier_1 fees are scraped from the pricing page, which lists "
+              f"{TIER1_PRICING_REGION} prices; no Tier_1 rows for {args.region}")
+        tier1_fees = {}
     core_rates, ram_rates, ssd_rates, gpu_rates = fetch_rates(token, args.region)
 
     print("Building rows ...")
-    rows = build_rows(specs, net, core_rates, ram_rates, ssd_rates, gpu_rates, args.region)
+    rows = build_rows(specs, net, core_rates, ram_rates, ssd_rates, gpu_rates,
+                      tier1_fees, args.region)
     write_duckdb(rows, args.output)
 
 

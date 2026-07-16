@@ -88,6 +88,16 @@ Accelerator families are priced CPU+RAM only (the GPU SKU is separate); those
 rows live in `gcp_accel`. `ebs_*` is always NULL — GCP's Hyperdisk families
 provision disk performance per-disk with no published per-machine-type cap.
 
+Machine types that support opt-in **per-VM Tier_1 networking** appear twice:
+once as the default configuration and once as a `<name>-tier1` row (own
+`<family>-tier1` family) carrying the Tier_1 egress bandwidth with the hourly
+Tier_1 fee added to `price_hour`. Consequently `net_peak_gbitps` always equals
+`net_gbitps` on GCP rows — Tier_1 is a paid config, not a free burst. The fee
+is scraped from the pricing page's static tables (the billing catalog's Tier_1
+SKUs don't carry the per-family fee differences); those list `us-central1`
+prices, so Tier_1 rows are only emitted for that region. Z3 supports Tier_1
+but has no published fee anywhere, so it gets no `-tier1` rows.
+
 ### Data sources
 
 | Data | Source | Auth |
@@ -95,6 +105,7 @@ provision disk performance per-disk with no published per-machine-type cap.
 | vCPU/RAM/arch/shared-cpu/GPU/local-SSD/deprecation | Compute Engine API `aggregated/machineTypes` | service account (compute.readonly) |
 | Per-family Core/Ram $/hour rates | Cloud Billing Catalog API `services/<compute>/skus` | service account (cloud-billing.readonly) |
 | Per-machine-type network bandwidth (default + Tier_1 egress) | GCP `cloud.google.com/compute/docs/*-machines` pages | none |
+| Per-family Tier_1 networking $/hour fee (us-central1) | GCP `products/compute/pricing/general-purpose` page | none |
 | Physical cores, IOPS, `vcpus_base`, `processor_model`, release year | derived / static tables in `gcp.py` | — |
 
 ### Setup & usage

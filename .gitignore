@@ -14,3 +14,4 @@ datagen/work/
 hetzner.token*
 hetzner.txt
 *.token
+gcp.json
