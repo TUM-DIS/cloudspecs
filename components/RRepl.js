@@ -31,6 +31,7 @@ export default class RRepl {
        return `
 library(svglite);
 library(ggplot2)
+theme_set(theme_bw())
 colors.area <- c(green = "#a3be8c", "dark-green" = "#469800", purple = "#b48ead", yellow = "#ebcb8b", frost = "#8fbcbb", "dark-blue" = "#5e81ac", "medium-grey" = "#4c566a", red = "#bf616a", "dark-red" = "#ab1b00", orange = "#ff9900", "light-blue" = "#81a1c1", "white-grey" = "#d8dee9", ice = "#88c0d0", carbon = "#2e3440", black = "black")
 colors.disc <- c(green = "#8DBE64", "dark-green" = "#469800", purple = "#B470A7", yellow = "#EBB13E", frost = "#6BBCBA", "dark-blue" = "#205FAC", "medium-grey" = "#34466A", red = "#BF1626", "dark-red" = "#AB1B00", orange = "#FF9900", "light-blue" = "#4E87C1", "white-grey" = "#CAD5E9", ice = "#4EB3D0", carbon = "#202A40", black = "#000000")
 make.palette <- function(input_mapping, colors_map = colors.disc) {
@@ -42,13 +43,13 @@ make.palette <- function(input_mapping, colors_map = colors.disc) {
 }
 colormap.vendor <- c('Unknown' = 'grey', 'AMD' = 'carbon', 'Intel' = 'dark-blue', 'Graviton' = 'orange', 'AWS Graviton' = 'orange')
 palette.vendor <- make.palette(colormap.vendor)
+palette.cloud <- make.palette(c('aws' = 'orange', 'azure' = 'dark-blue', 'gcp' = 'dark-green', 'oracle' = 'dark-red', 'ovh' = 'light-blue', 'hetzner' = 'carbon', 'stackit' = 'purple'))
 options(ggplot2.discrete.colour= unname(colors.disc[c("dark-green", "dark-blue", "dark-red", "purple", "yellow", "carbon", "orange", "light-blue", "ice")]))
 ` 
     }
 
   minimalRCode() {
     return `to_svg <- svgstring(width = output.width.inch, height = output.height.inch, scaling = 1)
-theme_set(theme_bw())
 
 ### the current table is bound to the variable 'df'
 output <- ggplot(df, aes()) +
