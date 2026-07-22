@@ -50,46 +50,33 @@
         "r_code": ""
     },
     {
-        "description": "Price per vCPU across Clouds",
+        "description": "The Instance-Type Explosion",
         "sql_code": [
-            "-- Each row feeds one point of the boxplot on the right.",
-            "SELECT cloud, instance, price_hour / vcpus AS usd_per_vcpu_hour",
-            "FROM cloudspecs"
+            "-- Navigating the cloud gets harder every year: cumulative number of instance",
+            "-- types each cloud has introduced (cf. Fig. 1 of the Cloudspecs paper).",
+            "WITH per_year AS (",
+            "    SELECT cloud, floor(release_year)::int AS year, count(*) AS added",
+            "    FROM cloudspecs_all -- includes old generations, GPUs, bare metal",
+            "    WHERE release_year IS NOT NULL -- STACKIT publishes no release dates",
+            "    GROUP BY ALL",
+            ")",
+            "SELECT cloud, year,",
+            "       -- ::int keeps the running sum out of HUGEINT, which R can't read",
+            "       sum(added) OVER (PARTITION BY cloud ORDER BY year)::int AS introduced_types",
+            "FROM per_year",
+            "ORDER BY cloud, year"
         ],
         "r_code": [
             "to_svg <- svgstring(width = output.width.inch, height = output.height.inch, scaling = 1)",
             "### the SQL result is bound to the data frame 'df';",
             "### palette.cloud is a predefined cloud -> color mapping",
-            "output <- ggplot(df, aes(x = reorder(cloud, usd_per_vcpu_hour, median),",
-            "                         y = usd_per_vcpu_hour, fill = cloud)) +",
-            "    geom_boxplot(show.legend = FALSE) +",
-            "    scale_fill_manual(values = palette.cloud) +",
-            "    scale_y_log10() +",
-            "    labs(x = NULL, y = 'USD per vCPU-hour (log scale)',",
-            "         title = 'On-demand price per vCPU')",
-            "plot(output); dev.off(); to_svg() # render to the html page"
-        ]
-    },
-    {
-        "description": "VM Shapes: vCPU/RAM Combinations",
-        "sql_code": [
-            "-- Which vCPU/RAM combinations does each cloud actually sell?",
-            "SELECT cloud, vcpus, ram_gib, count(*) AS n",
-            "FROM cloudspecs",
-            "GROUP BY ALL"
-        ],
-        "r_code": [
-            "to_svg <- svgstring(width = output.width.inch, height = output.height.inch, scaling = 1)",
-            "# one panel per cloud; dot size = number of instance types with that shape",
-            "output <- ggplot(df, aes(x = vcpus, y = ram_gib, size = n, color = cloud)) +",
-            "    geom_point(alpha = .5, show.legend = FALSE) +",
+            "output <- ggplot(df, aes(x = year, y = introduced_types, color = cloud)) +",
+            "    geom_step(linewidth = .8) +",
             "    scale_color_manual(values = palette.cloud) +",
-            "    scale_x_continuous(trans = 'log2', breaks = c(2, 8, 32, 128, 512)) +",
-            "    scale_y_continuous(trans = 'log2', breaks = c(4, 16, 64, 256, 1024, 4096)) +",
-            "    facet_wrap(~cloud, nrow = 2) +",
-            "    labs(x = 'vCPUs (log)', y = 'RAM GiB (log)',",
-            "         title = 'The VM shape grid of each cloud')",
-            "plot(output); dev.off(); to_svg()"
+            "    scale_x_continuous(breaks = seq(2006, 2026, 4)) +",
+            "    labs(x = 'Year', y = 'Instance types introduced so far',",
+            "         title = 'The instance-type explosion: hyperscalers offer 1000+ VM types')",
+            "plot(output); dev.off(); to_svg() # render to the html page"
         ]
     },
     {
@@ -148,29 +135,6 @@
             "    scale_x_log10() +",
             "    labs(x = 'USD per GPU-hour (log scale, cheapest instance)', y = NULL,",
             "         title = 'The same GPU can cost 4x more, depending on the cloud')",
-            "plot(output); dev.off(); to_svg()"
-        ]
-    },
-    {
-        "description": "Zoom In: Price Scaling within AWS Families",
-        "sql_code": [
-            "-- Single-cloud views: aws, gcp, azure, oracle, ovh, hetzner, stackit",
-            "-- (identical schema everywhere - swap the table name below and re-run).",
-            "SELECT family, instance, vcpus, price_hour",
-            "FROM aws",
-            "WHERE family IN ('c8g', 'm7i', 'r8g', 'x8g', 'i3en')",
-            "ORDER BY family, vcpus"
-        ],
-        "r_code": [
-            "to_svg <- svgstring(width = output.width.inch, height = output.height.inch, scaling = 1)",
-            "# straight parallel lines on a log-log plot: within a family, doubling",
-            "# vCPUs doubles the price, so per-core metrics are size-independent",
-            "output <- ggplot(df, aes(x = vcpus, y = price_hour, color = family)) +",
-            "    geom_point() + geom_line() +",
-            "    scale_x_continuous(trans = 'log2', breaks = c(1, 4, 16, 64, 192)) +",
-            "    scale_y_continuous(trans = 'log2') +",
-            "    labs(x = 'vCPUs (log)', y = 'USD per hour (log)',",
-            "         title = 'Price scales linearly with instance size')",
             "plot(output); dev.off(); to_svg()"
         ]
     },
