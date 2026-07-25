@@ -43,10 +43,12 @@ Notes vs AWS: storage_* is always null -- Scaleway bills every volume (Local SSD
 Block) separately per GB, so no storage capacity is included in an Instance's price.
 ebs_gbitps is the type's Block Storage bandwidth cap (a real per-type limit, unlike the
 other European clouds); ebs_*iops is null (Block Storage IOPS are a per-volume class).
-net_gbitps is the public-internet bandwidth Scaleway publishes per type and
-net_peak_gbitps the private-network (NIC) bandwidth -- equal except on the small
-COMPUTE3/MEMORY3/STANDARD3 sizes, whose NIC does 4 Gbit/s internally but is metered lower
-towards the internet. cores is inferred from the CPU's SMT: a Scaleway vCPU is one CPU
+net_gbitps is the private-network (NIC) bandwidth, the figure comparable to the other
+clouds' network performance, and net_peak_gbitps repeats it (Scaleway has no burst tier).
+Scaleway publishes a second, lower cap for public-internet traffic over that same NIC on
+the small COMPUTE3/MEMORY3/STANDARD3 sizes (0.5-2 instead of 4 Gbit/s); that cap is not in
+the schema, matching AWS and GCP, whose internet caps are likewise absent from their
+net_gbitps. cores is inferred from the CPU's SMT: a Scaleway vCPU is one CPU
 thread, so cores = vcpus/2 on the 2-way-SMT x86 hosts and cores = vcpus on the ARM
 (Ampere) and Atom hosts. vcpus_base == vcpus -- shared vCPUs run at full speed (no
 throttled baseline); they are flagged via scaleway_shared, not a fractional baseline.
@@ -391,7 +393,6 @@ def build_rows(types, catalog, zones, rate):
         proc = _processor(cpu.get("type") or sibling.get("type"), fam)
         n_gpu, acc_model, acc_gib = _accelerator(spec)
         net = spec.get("network") or {}
-        public = (net.get("sum_internet_bandwidth") or 0) / 1e9
         internal = (net.get("sum_internal_bandwidth") or 0) / 1e9
         block = (spec.get("block_bandwidth") or 0) * 8 / 1e9   # bytes/s -> Gbit/s
         retired = bool(spec.get("end_of_service")) or (
@@ -408,8 +409,8 @@ def build_rows(types, catalog, zones, rate):
             _cores(vcpus, proc, arch),                      # cores (physical, inferred)
             proc,                                           # processor_model
             arch,                                           # arch
-            public or None,                                 # net_gbitps (internet cap)
-            internal or None,                               # net_peak_gbitps (NIC)
+            internal or None,                               # net_gbitps (NIC)
+            internal or None,                               # net_peak_gbitps (no burst tier)
             None, None, None, None,                         # storage_* (billed separately)
             None,                                           # ebs_iops (per-volume class)
             block or None,                                  # ebs_gbitps (Block Storage)
@@ -469,8 +470,8 @@ COMMENT ON COLUMN scaleway_all.vcpus_base IS 'Same as vcpus (shared vCPUs run at
 COMMENT ON COLUMN scaleway_all.cores IS 'Physical cores inferred from the CPU: a vCPU is one thread, so cores = vcpus/2 on the 2-way-SMT x86 hosts (AMD EPYC, Intel Xeon) and cores = vcpus on the ARM (Ampere Altra Max) and Atom hosts';
 COMMENT ON COLUMN scaleway_all.processor_model IS 'CPU model from the product catalog with its microarchitecture appended; Scaleway qualifies the DEV1/GP1/STARDUST1 model as "or equivalent"';
 COMMENT ON COLUMN scaleway_all.arch IS 'Processor architecture (x86_64 or arm64)';
-COMMENT ON COLUMN scaleway_all.net_gbitps IS 'Public-internet bandwidth in Gbit/s (the per-type figure Scaleway publishes)';
-COMMENT ON COLUMN scaleway_all.net_peak_gbitps IS 'Private-network (NIC) bandwidth in Gbit/s -- equal to net_gbitps except on the small COMPUTE3/MEMORY3/STANDARD3 sizes, whose NIC does 4 Gbit/s internally but is metered lower towards the internet';
+COMMENT ON COLUMN scaleway_all.net_gbitps IS 'Private-network (NIC) bandwidth in Gbit/s, the figure comparable to network performance on the other clouds; Scaleway meters public-internet traffic over the same NIC at a lower cap on the small COMPUTE3/MEMORY3/STANDARD3 sizes (0.5-2 instead of 4 Gbit/s), which this column does not carry';
+COMMENT ON COLUMN scaleway_all.net_peak_gbitps IS 'Same as net_gbitps (Scaleway has no burst tier)';
 COMMENT ON COLUMN scaleway_all.storage_gb IS 'Always NULL -- Scaleway includes no storage in an Instance price: Local SSD, Scratch and Block volumes are all billed separately per GB';
 COMMENT ON COLUMN scaleway_all.storage_count IS 'Always NULL (see storage_gb)';
 COMMENT ON COLUMN scaleway_all.storage_is_ssd IS 'Always NULL (see storage_gb)';

@@ -450,10 +450,12 @@ types only offered there) is also the low-price reference.
 SSD, Scratch and Block volumes are each billed separately per GB (as is the flexible
 IPv4), so `price_hour` is compute-only. `ebs_gbitps` is the type's Block Storage bandwidth
 cap, a real per-type limit (`ebs_*iops` is NULL — Block Storage IOPS are a per-volume 5k /
-15k class). `net_gbitps` is the public-internet bandwidth Scaleway publishes per type and
-`net_peak_gbitps` the private-network (NIC) bandwidth; they are equal except on the small
-COMPUTE3/MEMORY3/STANDARD3 sizes, whose NIC does 4 Gbit/s internally but is metered lower
-towards the internet. `cores` is inferred from the CPU's SMT — a Scaleway vCPU is one CPU
+15k class). `net_gbitps` is the private-network (NIC) bandwidth — the figure comparable to
+the other clouds' network performance — and `net_peak_gbitps` repeats it (Scaleway has no
+burst tier). Scaleway publishes a second, lower cap for public-internet traffic over that
+same NIC on the small COMPUTE3/MEMORY3/STANDARD3 sizes (0.5–2 instead of 4 Gbit/s); that
+cap is deliberately not in the schema, matching AWS and GCP, whose own internet caps are
+likewise absent from their `net_gbitps`. `cores` is inferred from the CPU's SMT — a Scaleway vCPU is one CPU
 thread, so `cores = vcpus/2` on the 2-way-SMT x86 hosts and `cores = vcpus` on the ARM
 (Ampere Altra Max) and legacy Atom hosts. `processor_model` is the catalog's exact CPU
 model with its microarchitecture appended (Scaleway qualifies the DEV1/GP1/STARDUST1 model
