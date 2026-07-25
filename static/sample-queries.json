@@ -2,7 +2,7 @@
     {
         "description": "Tour: What's in Each Cloud?",
         "sql_code": [
-            "-- Seven clouds, one schema. Every cloud has a table <cloud>_all with every",
+            "-- Eight clouds, one schema. Every cloud has a table <cloud>_all with every",
             "-- instance type, plus curated views like <cloud> (comparable current-gen VMs).",
             "-- The cloudspecs* views UNION all clouds and add a 'cloud' column (see Help).",
             "SELECT cloud,",
@@ -25,7 +25,7 @@
         "sql_code": [
             "-- Each cloud also has per-cloud tables with an identical schema: aws_all,",
             "-- aws (comparable slice), aws_family, aws_accel, aws_shared - and likewise",
-            "-- for gcp, azure, oracle, ovh, hetzner, stackit. What did AWS launch lately?",
+            "-- for gcp, azure, oracle, ovh, hetzner, stackit, scaleway. What did AWS launch lately?",
             "SELECT family, instance, category, processor_model, arch,",
             "       vcpus, ram_gib, round(price_hour, 3) AS usd_hour, release_year",
             "FROM aws_family -- one representative (largest) instance per family",
@@ -37,7 +37,7 @@
     {
         "description": "Find a VM: Cheapest 16 vCPUs + 64 GiB",
         "sql_code": [
-            "-- The cloudspecs view is the comparable slice of all seven clouds:",
+            "-- The cloudspecs view is the comparable slice of all eight clouds:",
             "-- current-generation, priced, non-burstable, non-accelerator VMs.",
             "SELECT cloud, instance, arch, processor_model, price_hour,",
             "       round(price_hour * 730) AS usd_month",

@@ -1,10 +1,10 @@
-# cloudspecs builders (AWS + GCP + Azure + STACKIT + OVHcloud + Oracle + Hetzner)
+# cloudspecs builders (AWS + GCP + Azure + STACKIT + OVHcloud + Oracle + Hetzner + Scaleway)
 
 Self-contained rewrite of the cloud scrapers that produce `cloudspecs.duckdb`.
 No dependency on the rest of this repository. Only **Linux on-demand prices** are
 collected (AWS: us-east-1; GCP: us-central1; Azure: eastus; STACKIT: eu01; OVHcloud:
-standard region; Oracle: uniform commercial list price; Hetzner: fsn1 — each a low-price
-reference).
+standard region; Oracle: uniform commercial list price; Hetzner: fsn1; Scaleway: fr-par —
+each a low-price reference).
 
 - `build.py` — AWS EC2 → `aws_all` table + views
 - `gcp.py` — GCP Compute Engine → `gcp_all` table + views
@@ -13,9 +13,10 @@ reference).
 - `ovh.py` — OVHcloud Public Cloud instances → `ovh_all` table + views
 - `oracle.py` — Oracle Cloud (OCI) Compute shapes → `oracle_all` table + views
 - `hetzner.py` — Hetzner Cloud servers → `hetzner_all` table + views
+- `scaleway.py` — Scaleway Instances → `scaleway_all` table + views
 - `combine.py` — cross-cloud `cloudspecs*` UNION ALL views (run **last**)
 
-All seven cloud scripts write into the same `cloudspecs.duckdb` with an
+All eight cloud scripts write into the same `cloudspecs.duckdb` with an
 **identical 27-column schema** (same names, same order), so the clouds are
 directly comparable.
 
@@ -32,8 +33,8 @@ directly comparable.
 | `cloudspecs_all` | the `<cloud>_all` tables | every instance, all 27 columns |
 
 So `select * from cloudspecs_all where cloud = 'gcp'` replaces the manual
-`aws_all union all gcp_all union all …`. Prices are USD (STACKIT's, OVHcloud's
-and Hetzner's EUR prices are converted at the ECB reference rate).
+`aws_all union all gcp_all union all …`. Prices are USD (STACKIT's, OVHcloud's,
+Hetzner's and Scaleway's EUR prices are converted at the ECB reference rate).
 
 ## AWS — `build.py`
 
@@ -125,9 +126,10 @@ python gcp.py --region europe-west1  # price a different region
 ```
 
 Run `build.py` **first** — it recreates `cloudspecs.duckdb` from scratch — then
-`gcp.py`, `azure.py`, `stackit.py`, `ovh.py`, `oracle.py` and `hetzner.py`, which open the
-existing file and only add/replace their own `gcp_*` / `azure_*` / `stackit_*` / `ovh_*` /
-`oracle_*` / `hetzner_*` tables and views (in any order). Finally run
+`gcp.py`, `azure.py`, `stackit.py`, `ovh.py`, `oracle.py`, `hetzner.py` and `scaleway.py`,
+which open the existing file and only add/replace their own `gcp_*` / `azure_*` /
+`stackit_*` / `ovh_*` / `oracle_*` / `hetzner_*` / `scaleway_*` tables and views (in any
+order). Finally run
 `combine.py` — it builds the cross-cloud `cloudspecs*` views and so must run
 **last**, once every `<cloud>_all` table and its views exist:
 
@@ -408,6 +410,74 @@ Without a token `hetzner.py` builds from a **frozen snapshot** of the current EU
 baked into the script (so the DB is always produced); `--refresh` with a token re-fetches
 live (cached under `work/hetzner/`, gitignored) and additionally picks up any
 deprecated-but-still-priced types (flagged `is_current = false`).
+
+## Scaleway — `scaleway.py`
+
+The Scaleway Instances counterpart to `build.py`, same style and schema. Writes a
+`scaleway_all` table plus four views:
+
+| Object | Contents |
+|--------|----------|
+| `scaleway_all` | every Instance type — all 27 `aws_all` columns |
+| `scaleway` | comparable slice: current, priced, **dedicated-vCPU**, non-GPU |
+| `scaleway_family` | one representative type per family (net-efficiency window like `aws_family`) |
+| `scaleway_accel` | GPU types, with the GPU model |
+| `scaleway_shared` | the shared-vCPU ranges (STARDUST1 / PLAY2 / DEV1 / GP1 / PRO2 / BASIC2-A / BASIC3-X, plus the retired VC1 / X64 / START1) — Scaleway's oversubscribed tier |
+
+**Two public sources, no auth.** The Instance API gives the type universe and the specs
+the price list omits; the Product Catalog API — Scaleway's published price list — gives
+the price with an explicit currency code, the exact CPU model, whether a type's vCPUs are
+shared or dedicated, its commercial range and its GA/retired status. The catalog price
+wins where it prices a type; the ~30 types it does not — the mid-sized steps of the newer
+ranges (`POP2-6C-24G`, `STANDARD3-X12C-48G`, …) and the retired VC1 range, whose catalog
+entry is a dead €0 stub — fall back to the Instance API's `hourly_price`. The two agree on
+every other current type except `STANDARD2-A32C-128G`, where only the catalog price is
+linear in the family's per-vCPU rate. Prices are **EUR**,
+converted to **USD** at the live ECB reference rate, and are uniform across Scaleway's
+zones except fr-par-3 (~+50%), so the Paris reference (fr-par-1, plus fr-par-2 for the GPU
+types only offered there) is also the low-price reference.
+
+### Data sources
+
+| Data | Source | Auth |
+|------|--------|------|
+| Type universe, vCPU, RAM, arch, internet/private bandwidth, Block Storage bandwidth, GPU model + memory, end-of-service | [Instance API](https://api.scaleway.com/instance/v1/zones/fr-par-1/products/servers) `products/servers` | none |
+| Price (EUR), CPU model, shared vs dedicated vCPU, commercial range, GA/retired status | [Product Catalog API](https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_category=Instance) (`/compute/…` SKUs) | none |
+| EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
+| Family, category, cores, release year | derived / curated in `scaleway.py` | — |
+
+`storage_*` is always NULL — Scaleway includes no storage in an Instance's price: Local
+SSD, Scratch and Block volumes are each billed separately per GB (as is the flexible
+IPv4), so `price_hour` is compute-only. `ebs_gbitps` is the type's Block Storage bandwidth
+cap, a real per-type limit (`ebs_*iops` is NULL — Block Storage IOPS are a per-volume 5k /
+15k class). `net_gbitps` is the public-internet bandwidth Scaleway publishes per type and
+`net_peak_gbitps` the private-network (NIC) bandwidth; they are equal except on the small
+COMPUTE3/MEMORY3/STANDARD3 sizes, whose NIC does 4 Gbit/s internally but is metered lower
+towards the internet. `cores` is inferred from the CPU's SMT — a Scaleway vCPU is one CPU
+thread, so `cores = vcpus/2` on the 2-way-SMT x86 hosts and `cores = vcpus` on the ARM
+(Ampere Altra Max) and legacy Atom hosts. `processor_model` is the catalog's exact CPU
+model with its microarchitecture appended (Scaleway qualifies the DEV1/GP1/STARDUST1 model
+as "or equivalent"). `release_year` is curated per family from Scaleway's
+[changelog](https://www.scaleway.com/en/changelog/) where it announced the range, else
+from the commit that introduced the range to the [public
+docs](https://github.com/scaleway/docs-content) — a lagging bound, hence approximate.
+Windows (`POP2-*-WIN`) types are skipped; end-of-service ranges (VC1, X64, START1) are
+kept in `scaleway_all` but marked `is_current = false`. Elastic Metal (bare metal) is a
+separate, authenticated API and is not included.
+
+### Usage
+
+```sh
+pip install -r requirements.txt
+
+python scaleway.py                      # -> cloudspecs.duckdb (adds scaleway_all + views)
+python scaleway.py --zones nl-ams-1     # price a different zone (all but fr-par-3 are equal)
+python scaleway.py --eur-usd 1.10       # pin the FX rate instead of the live ECB rate
+python scaleway.py --refresh            # re-download the cached type list + price catalog
+```
+
+The type list and price catalog are cached under `work/scaleway/` (gitignored);
+`--refresh` re-downloads them.
 
 ## Debugging
 

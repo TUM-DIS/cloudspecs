@@ -3,7 +3,7 @@
 Combine the per-cloud tables/views in cloudspecs.duckdb into cross-cloud views.
 
 Run LAST, after build.py (AWS) and the other cloud scripts (gcp, azure, stackit,
-ovh, oracle, hetzner) have all written their <cloud>_all table and
+ovh, oracle, hetzner, scaleway) have all written their <cloud>_all table and
 <cloud> / <cloud>_accel / <cloud>_shared views into the same cloudspecs.duckdb.
 
 Creates four UNION ALL views spanning every cloud, each with a leading `cloud`
@@ -30,7 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Source-cloud tags, emitted as a static string in the `cloud` column of each
 # UNION ALL branch. Order also fixes the row order of the combined views.
-CLOUDS = ["aws", "gcp", "azure", "stackit", "ovh", "oracle", "hetzner"]
+CLOUDS = ["aws", "gcp", "azure", "stackit", "ovh", "oracle", "hetzner", "scaleway"]
 
 # (combined view name, per-cloud object suffix). The comparable slice unions the
 # bare <cloud> views; the others append the matching suffix.

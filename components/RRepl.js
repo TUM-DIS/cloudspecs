@@ -43,7 +43,7 @@ make.palette <- function(input_mapping, colors_map = colors.disc) {
 }
 colormap.vendor <- c('Unknown' = 'grey', 'AMD' = 'carbon', 'Intel' = 'dark-blue', 'Graviton' = 'orange', 'AWS Graviton' = 'orange')
 palette.vendor <- make.palette(colormap.vendor)
-palette.cloud <- make.palette(c('aws' = 'orange', 'azure' = 'dark-blue', 'gcp' = 'dark-green', 'oracle' = 'dark-red', 'ovh' = 'light-blue', 'hetzner' = 'carbon', 'stackit' = 'purple'))
+palette.cloud <- make.palette(c('aws' = 'orange', 'azure' = 'dark-blue', 'gcp' = 'dark-green', 'oracle' = 'dark-red', 'ovh' = 'light-blue', 'hetzner' = 'carbon', 'stackit' = 'purple', 'scaleway' = 'frost'))
 options(ggplot2.discrete.colour= unname(colors.disc[c("dark-green", "dark-blue", "dark-red", "purple", "yellow", "carbon", "orange", "light-blue", "ice")]))
 ` 
     }
