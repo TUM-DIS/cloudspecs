@@ -272,7 +272,14 @@ x86_64 hosts a vCore is one hardware thread of a 2-way-hyperthreaded core, so
 `cores = vcpus/2` (ceil). Bare-metal flavors are the exception — the catalog reports their
 real physical cores and threads directly (e.g. 16C/32T), so `vcpus = threads` and
 `cores = cores`. `ebs_*` is
-NULL (block-storage throughput is per-volume, not per-flavor). `processor_model` is
+NULL (block-storage throughput is per-volume, not per-flavor). `net_gbitps` is the private
+(vRack) bandwidth — the intra-cloud figure comparable to the other clouds' network
+performance — and `net_peak_gbitps` repeats it (no burst tier). The catalog carries a
+second, public-internet level that is deliberately not in the schema: it is usually the
+lower of the two (`c3-4`: 0.25 vs 4 Gbit/s, and b3/c3/r3 have a flat 4 Gbit/s vRack floor
+up to 16–32 vCores) but *higher* on the large previous-generation flavors (`b2-120`: 10 vs
+4), so unlike Scaleway's the two figures are genuinely different traffic classes rather
+than a capability and a meter below it. `processor_model` is
 populated only for bare-metal flavors (which name a real CPU) and a curated per-family
 table; standard flavors report a generic "vCore". `release_year` is an approximate
 curated per-family GA year. The `win-*` (Windows) and spec-less catalog stubs are

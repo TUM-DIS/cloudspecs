@@ -41,8 +41,12 @@ physical cores and threads directly (e.g. 16C/32T), so vcpus = threads and cores
 processor_model is the CPU model where the catalog names one (bare metal) or a curated
 per-family value, else null (standard flavors report a generic "vCore"). release_year is
 approximate (curated per-family GA year). ebs_* is null -- OVH block-storage throughput
-is per-volume, not per-flavor. net_gbitps is the guaranteed public-bandwidth level (no
-separate peak, so net_peak == net).
+is per-volume, not per-flavor. net_gbitps is the private (vRack) bandwidth level -- the
+intra-cloud figure comparable to the other clouds' network performance -- and net_peak
+repeats it (no burst tier). The catalog also carries a separate public-internet level,
+which is not in the schema; it is usually the lower of the two (c3-4: 0.25 vs 4 Gbit/s)
+but higher on the large previous-generation b2/c2/r2/i1 flavors (b2-120: 10 vs 4), so the
+two are genuinely different traffic classes rather than a capability and a meter.
 """
 
 import argparse
@@ -275,7 +279,7 @@ def build_rows(catalog, rate):
         brick = comm.get("brick")
         gpu = tech.get("gpu")
         vcpus, cores = _cpu_topology(cpu)
-        bw = ((tech.get("bandwidth") or {}).get("level") or 0) / 1000.0 or None
+        bw = ((tech.get("vrack") or {}).get("level") or 0) / 1000.0 or None
         s_gb, s_cnt, s_ssd, s_nvme, s_iops = _storage(tech.get("storage"))
 
         if gpu:
@@ -355,8 +359,8 @@ COMMENT ON COLUMN ovh_all.vcpus_base IS 'Same as vcpus';
 COMMENT ON COLUMN ovh_all.cores IS 'Physical cores: OVH vCores are hardware threads on 2-way-hyperthreaded x86_64 hosts, so cores = vcpus/2 (ceil); bare-metal flavors report real physical cores (catalog gives cores + threads, e.g. 16C/32T)';
 COMMENT ON COLUMN ovh_all.processor_model IS 'CPU model where the catalog names one (bare metal) or a curated per-family value; NULL for standard flavors (catalog reports generic "vCore")';
 COMMENT ON COLUMN ovh_all.arch IS 'Processor architecture (all OVH public-cloud flavors are x86_64)';
-COMMENT ON COLUMN ovh_all.net_gbitps IS 'Guaranteed public-network bandwidth in Gbit/s';
-COMMENT ON COLUMN ovh_all.net_peak_gbitps IS 'Same as net_gbitps (OVH publishes one bandwidth level)';
+COMMENT ON COLUMN ovh_all.net_gbitps IS 'Private-network (vRack) bandwidth in Gbit/s, the intra-cloud figure comparable to network performance on the other clouds; OVH meters internet traffic separately, usually lower (c3-4: 0.25 vs 4) but higher on the large b2/c2/r2/i1 flavors (b2-120: 10 vs 4)';
+COMMENT ON COLUMN ovh_all.net_peak_gbitps IS 'Same as net_gbitps (OVH publishes no burst tier)';
 COMMENT ON COLUMN ovh_all.storage_gb IS 'Total local disk in GB (sum over local disks; NULL when the flavor has no local disk)';
 COMMENT ON COLUMN ovh_all.storage_count IS 'Number of local disks';
 COMMENT ON COLUMN ovh_all.storage_is_ssd IS 'Whether local storage is SSD/NVMe';
