@@ -17,8 +17,8 @@ carries the hourly ("consumption") price. We take the base `<flavor>.consumption
 (the standard hourly price), skip the Windows (`win-*`) variants, and read Linux prices.
 
 Prices are published in the subsidiary's currency (EUR for FR/DE); price_hour is
-converted to USD (to match the other clouds) at the live ECB reference rate,
-overridable with --eur-usd.
+converted to USD (to match the other clouds) at the fixed EUR_USD rate in fx.py, shared
+with the other EUR-priced builds and overridable with --eur-usd.
 
 Derived / static: family (flavor name minus the "-<size>" suffix), category (from the
 catalog "brick"/subtype), release_year and the standard-flavor CPU model (curated
@@ -60,14 +60,13 @@ import urllib.request
 
 import duckdb
 
+from fx import EUR_USD
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 DEFAULT_SUBSIDIARY = "FR"  # EUR catalog; the consumption price is uniform across EUR subs
 CATALOG_URL = "https://api.ovh.com/1.0/order/catalog/public/cloud"
 PRICE_DIVISOR = 1e8        # catalog `price` is in micro-units: 7090000 -> 0.0709 EUR/h
-
-ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
-FALLBACK_EUR_USD = 1.14    # ~mid-2026; used only if ECB is unreachable (or via --eur-usd)
 
 WORK = os.path.join(HERE, "work", "ovh")
 
@@ -136,24 +135,6 @@ def _cached(name, url, refresh):
         f.write(text)
     time.sleep(0.15)
     return text
-
-
-# --------------------------------------------------------------------------- #
-# EUR -> USD
-# --------------------------------------------------------------------------- #
-def eur_to_usd(explicit):
-    """(rate, source). Explicit --eur-usd wins; else the live ECB rate; else fallback."""
-    if explicit:
-        return explicit, "--eur-usd"
-    try:
-        xml = _get(ECB_URL, timeout=20)
-        m = re.search(r"currency=['\"]USD['\"]\s+rate=['\"]([0-9.]+)['\"]", xml)
-        d = re.search(r"time=['\"]([0-9-]+)['\"]", xml)
-        if m:
-            return float(m.group(1)), f"ECB {d.group(1) if d else 'daily'}"
-    except Exception as e:
-        print(f"  WARNING: ECB rate unavailable ({e}); using fallback {FALLBACK_EUR_USD}")
-    return FALLBACK_EUR_USD, "fallback"
 
 
 # --------------------------------------------------------------------------- #
@@ -350,7 +331,7 @@ create view ovh_accel as
 create view ovh_shared as
   select * from ovh_all where family in ({burst});
 COMMENT ON COLUMN ovh_all.instance IS 'OVHcloud instance flavor name (e.g. b3-8)';
-COMMENT ON COLUMN ovh_all.price_hour IS 'Standard-region Linux hourly on-demand price in USD (catalog consumption price, converted from EUR at the ECB reference rate)';
+COMMENT ON COLUMN ovh_all.price_hour IS 'Standard-region Linux hourly on-demand price in USD (catalog consumption price, converted from EUR at the fixed rate in fx.py)';
 COMMENT ON COLUMN ovh_all.family IS 'Flavor family: flavor name minus the "-<size>" suffix (b3-8 -> b3, t1-le-45 -> t1-le)';
 COMMENT ON COLUMN ovh_all.category IS 'Category from the catalog brick subtype (General purpose, Compute optimized, Memory optimized, Storage optimized, Bare metal, GPU)';
 COMMENT ON COLUMN ovh_all.ram_gib IS 'Amount of main memory in GiB';
@@ -407,8 +388,8 @@ def main():
                     help="DuckDB file to write the ovh_all table + views into")
     ap.add_argument("--subsidiary", default=DEFAULT_SUBSIDIARY,
                     help="OVH catalog subsidiary / currency (EUR subs: FR, DE, ...)")
-    ap.add_argument("--eur-usd", type=float, default=None,
-                    help="EUR->USD rate (default: live ECB reference rate)")
+    ap.add_argument("--eur-usd", type=float, default=EUR_USD,
+                    help=f"EUR->USD rate (default: the fixed {EUR_USD} from fx.py)")
     ap.add_argument("--refresh", action="store_true",
                     help="re-download the cached catalog")
     args = ap.parse_args()
@@ -417,8 +398,8 @@ def main():
     if currency != "EUR":
         raise SystemExit(f"subsidiary {args.subsidiary} bills in {currency}; use a EUR "
                          f"subsidiary (FR, DE, ES, IT, PL, ...) so prices convert to USD")
-    rate, src = eur_to_usd(args.eur_usd)
-    print(f"EUR->USD = {rate} ({src})")
+    rate = args.eur_usd
+    print(f"EUR->USD = {rate}" + ("" if rate == EUR_USD else " (--eur-usd override)"))
 
     print("Building rows ...")
     rows, burst = build_rows(catalog, rate)

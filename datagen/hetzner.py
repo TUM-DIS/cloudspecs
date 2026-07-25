@@ -17,7 +17,8 @@ the build uses the SNAPSHOT below -- the fsn1 server_types captured live from th
 Prices are the compute-only server price (Hetzner bills the primary IPv4 separately) for a
 low-price EU reference location (Falkenstein fsn1); the API also carries nbg1/hel1 (same
 EU price) and the pricier ash/hil/sin. Prices are published in EUR and converted to USD
-(to match the other clouds) at the live ECB reference rate, overridable with --eur-usd.
+(to match the other clouds) at the fixed EUR_USD rate in fx.py, shared with the other
+EUR-priced builds and overridable with --eur-usd.
 
 Derived / static: family (name minus the size digits: cx22 -> cx, ccx13 -> ccx), category
 (shared vs dedicated vCPU), processor_model and release_year (curated per family -- the API
@@ -52,14 +53,13 @@ import urllib.request
 
 import duckdb
 
+from fx import EUR_USD
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 API_URL = "https://api.hetzner.cloud/v1/server_types"
 DEFAULT_LOCATION = "fsn1"          # Falkenstein; low-price EU reference (== nbg1 / hel1)
 DEFAULT_TOKEN_FILE = os.path.join(HERE, "..", "hetzner.txt")
-
-ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
-FALLBACK_EUR_USD = 1.14            # ~mid-2026; used only if ECB is unreachable
 
 WORK = os.path.join(HERE, "work", "hetzner")
 
@@ -150,24 +150,6 @@ def _get(url, timeout=60, headers=None):
     req = urllib.request.Request(url, headers=headers or {"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read().decode("utf-8", "replace")
-
-
-# --------------------------------------------------------------------------- #
-# EUR -> USD
-# --------------------------------------------------------------------------- #
-def eur_to_usd(explicit):
-    """(rate, source). Explicit --eur-usd wins; else the live ECB rate; else fallback."""
-    if explicit:
-        return explicit, "--eur-usd"
-    try:
-        xml = _get(ECB_URL, timeout=20)
-        m = re.search(r"currency=['\"]USD['\"]\s+rate=['\"]([0-9.]+)['\"]", xml)
-        d = re.search(r"time=['\"]([0-9-]+)['\"]", xml)
-        if m:
-            return float(m.group(1)), f"ECB {d.group(1) if d else 'daily'}"
-    except Exception as e:
-        print(f"  WARNING: ECB rate unavailable ({e}); using fallback {FALLBACK_EUR_USD}")
-    return FALLBACK_EUR_USD, "fallback"
 
 
 # --------------------------------------------------------------------------- #
@@ -315,7 +297,7 @@ create view hetzner_accel as
 create view hetzner_shared as
   select * from hetzner_all where family in ({burst});
 COMMENT ON COLUMN hetzner_all.instance IS 'Hetzner Cloud server type name (e.g. cx22, ccx33)';
-COMMENT ON COLUMN hetzner_all.price_hour IS 'Reference-location (fsn1) compute hourly price in USD (server price without the separate primary IPv4, converted from EUR at the ECB reference rate)';
+COMMENT ON COLUMN hetzner_all.price_hour IS 'Reference-location (fsn1) compute hourly price in USD (server price without the separate primary IPv4, converted from EUR at the fixed rate in fx.py)';
 COMMENT ON COLUMN hetzner_all.family IS 'Server-type family: name minus the size digits (cx22 -> cx, ccx13 -> ccx)';
 COMMENT ON COLUMN hetzner_all.category IS 'Shared vCPU (CX/CPX/CAX, oversubscribed) or Dedicated vCPU (CCX)';
 COMMENT ON COLUMN hetzner_all.ram_gib IS 'Amount of main memory in GiB';
@@ -374,14 +356,14 @@ def main():
                     help="Hetzner location to price (default fsn1; EU is cheapest)")
     ap.add_argument("--token", default=None,
                     help="Hetzner Cloud API token (default: HCLOUD_TOKEN or ../hetzner.txt)")
-    ap.add_argument("--eur-usd", type=float, default=None,
-                    help="EUR->USD rate (default: live ECB reference rate)")
+    ap.add_argument("--eur-usd", type=float, default=EUR_USD,
+                    help=f"EUR->USD rate (default: the fixed {EUR_USD} from fx.py)")
     ap.add_argument("--refresh", action="store_true",
                     help="re-fetch server_types live (requires a token)")
     args = ap.parse_args()
 
-    rate, src = eur_to_usd(args.eur_usd)
-    print(f"EUR->USD = {rate} ({src})")
+    rate = args.eur_usd
+    print(f"EUR->USD = {rate}" + ("" if rate == EUR_USD else " (--eur-usd override)"))
 
     token = _find_token(args.token)
     types, source = load_server_types(token, args.location, args.refresh)

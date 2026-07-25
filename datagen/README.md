@@ -15,6 +15,13 @@ each a low-price reference).
 - `hetzner.py` — Hetzner Cloud servers → `hetzner_all` table + views
 - `scaleway.py` — Scaleway Instances → `scaleway_all` table + views
 - `combine.py` — cross-cloud `cloudspecs*` UNION ALL views (run **last**)
+- `fx.py` — the single EUR→USD constant the four EUR-priced builds share
+
+Bump `EUR_USD` in `fx.py` and rebuild STACKIT, OVHcloud, Hetzner and Scaleway
+**together**, so one database never mixes conversion rates: when each script
+fetched a live rate at run time, a database assembled over several days priced
+OVHcloud at 1.1424 and Hetzner at 1.1430, and a comparison between two European
+clouds silently carried that FX difference on top of the price difference.
 
 All eight cloud scripts write into the same `cloudspecs.duckdb` with an
 **identical 27-column schema** (same names, same order), so the clouds are
@@ -34,7 +41,8 @@ directly comparable.
 
 So `select * from cloudspecs_all where cloud = 'gcp'` replaces the manual
 `aws_all union all gcp_all union all …`. Prices are USD (STACKIT's, OVHcloud's,
-Hetzner's and Scaleway's EUR prices are converted at the ECB reference rate).
+Hetzner's and Scaleway's EUR prices are converted at the single fixed rate in
+`fx.py`).
 
 ## AWS — `build.py`
 
@@ -209,7 +217,7 @@ schema. Writes a `stackit_all` table plus four views:
 STACKIT is the simplest cloud here: **both data sources are public, no auth.** The
 flavor universe and core specs come straight from the price list; the docs page only
 enriches it. Prices are published in **EUR** and converted to **USD** (to match the
-other clouds) at the live ECB reference rate.
+other clouds) at the fixed rate in `fx.py`.
 
 ### Data sources
 
@@ -217,7 +225,7 @@ other clouds) at the live ECB reference rate.
 |------|--------|------|
 | Flavor universe, price, vCPU, RAM, CPU vendor, overprovisioning flag | Public [price-list JSON](https://pim.api.stackit.cloud/v1/skus?region=eu01) (`region=eu01`, standard/non-metro flavors) | none |
 | Local disk, GPU model + memory, CPU microarchitecture | [Machine-types docs](https://docs.stackit.cloud/products/compute-engine/server/basics/machine-types/) | none |
-| EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
+| EUR→USD rate | `fx.py` — one fixed constant shared by the four EUR builds | — |
 | Family, category, cores, release year, accelerator count | derived in `stackit.py` | — |
 
 `net_gbitps` and `ebs_*` are always NULL — STACKIT publishes no per-flavor network or
@@ -233,7 +241,7 @@ pip install -r requirements.txt
 
 python stackit.py                    # -> cloudspecs.duckdb (adds stackit_all + views)
 python stackit.py --region eu02      # price a different region
-python stackit.py --eur-usd 1.10     # pin the FX rate instead of the live ECB rate
+python stackit.py --eur-usd 1.10     # override the fixed fx.py rate
 python stackit.py --refresh          # re-download the cached price list + docs page
 ```
 
@@ -257,14 +265,14 @@ Like STACKIT, **one public source, no auth** — and it's unusually complete. Ev
 instance flavor is an entry in the OVHcloud order catalog whose `blobs.technical` carries
 the full spec (vCores, memory, public-network bandwidth, local disks + IOPS, GPU
 model/memory/count) *and* whose `pricings` carries the hourly price. Prices are **EUR**,
-converted to **USD** at the live ECB reference rate.
+converted to **USD** at the fixed rate in `fx.py`.
 
 ### Data sources
 
 | Data | Source | Auth |
 |------|--------|------|
 | Flavor universe, price, vCPU, RAM, bandwidth, local disk, GPU | Public [order catalog](https://api.ovh.com/1.0/order/catalog/public/cloud?ovhSubsidiary=FR) (`publiccloud-instance` addons, base `<flavor>.consumption` plan, Linux) | none |
-| EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
+| EUR→USD rate | `fx.py` — one fixed constant shared by the four EUR builds | — |
 | Family, category, CPU model, release year | derived / curated in `ovh.py` | — |
 
 `cores` (physical) is inferred from the CPU's SMT: OVH publishes vCores, and on its
@@ -292,7 +300,7 @@ pip install -r requirements.txt
 
 python ovh.py                        # -> cloudspecs.duckdb (adds ovh_all + views)
 python ovh.py --subsidiary DE        # a different EUR catalog (price is uniform across EUR subs)
-python ovh.py --eur-usd 1.10         # pin the FX rate instead of the live ECB rate
+python ovh.py --eur-usd 1.10         # override the fixed fx.py rate
 python ovh.py --refresh              # re-download the cached catalog
 ```
 
@@ -381,14 +389,14 @@ token, so — like the Hetzner **shared** vCPU lines being oversubscribed — th
 `hetzner_shared`, matching how STACKIT's overprovisioned and OVHcloud's shared-vCore
 families are handled). Prices are the compute-only server price (the primary IPv4 is billed
 separately) at the low-price EU reference location fsn1 (== nbg1 / hel1; ash/hil/sin cost
-more), in EUR, converted to USD at the live ECB reference rate.
+more), in EUR, converted to USD at the fixed rate in `fx.py`.
 
 ### Data sources
 
 | Data | Source | Auth |
 |------|--------|------|
 | Server types (vCPU, RAM, disk, cpu_type, arch, price) | Hetzner Cloud API [`/v1/server_types`](https://docs.hetzner.cloud/) | Hetzner Cloud API token |
-| EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
+| EUR→USD rate | `fx.py` — one fixed constant shared by the four EUR builds | — |
 | CPU model, release year | derived / curated in `hetzner.py` | — |
 
 `net_gbitps` and `ebs_*` are always NULL — Hetzner publishes no per-type network bandwidth
@@ -410,7 +418,7 @@ pip install -r requirements.txt
 export HCLOUD_TOKEN=...               # or put it in ../hetzner.txt
 python hetzner.py --refresh           # -> cloudspecs.duckdb (adds hetzner_all + views)
 python hetzner.py --location nbg1      # price a different location
-python hetzner.py --eur-usd 1.10       # pin the FX rate instead of the live ECB rate
+python hetzner.py --eur-usd 1.10       # override the fixed fx.py rate
 ```
 
 Without a token `hetzner.py` builds from a **frozen snapshot** of the current EU types
@@ -440,7 +448,7 @@ ranges (`POP2-6C-24G`, `STANDARD3-X12C-48G`, …) and the retired VC1 range, who
 entry is a dead €0 stub — fall back to the Instance API's `hourly_price`. The two agree on
 every other current type except `STANDARD2-A32C-128G`, where only the catalog price is
 linear in the family's per-vCPU rate. Prices are **EUR**,
-converted to **USD** at the live ECB reference rate, and are uniform across Scaleway's
+converted to **USD** at the fixed rate in `fx.py`, and are uniform across Scaleway's
 zones except fr-par-3 (~+50%), so the Paris reference (fr-par-1, plus fr-par-2 for the GPU
 types only offered there) is also the low-price reference.
 
@@ -450,7 +458,7 @@ types only offered there) is also the low-price reference.
 |------|--------|------|
 | Type universe, vCPU, RAM, arch, internet/private bandwidth, Block Storage bandwidth, GPU model + memory, end-of-service | [Instance API](https://api.scaleway.com/instance/v1/zones/fr-par-1/products/servers) `products/servers` | none |
 | Price (EUR), CPU model, shared vs dedicated vCPU, commercial range, GA/retired status | [Product Catalog API](https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_category=Instance) (`/compute/…` SKUs) | none |
-| EUR→USD rate | Public [ECB daily reference rate](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | none |
+| EUR→USD rate | `fx.py` — one fixed constant shared by the four EUR builds | — |
 | Family, category, cores, release year | derived / curated in `scaleway.py` | — |
 
 `storage_*` is always NULL — Scaleway includes no storage in an Instance's price: Local
@@ -481,7 +489,7 @@ pip install -r requirements.txt
 
 python scaleway.py                      # -> cloudspecs.duckdb (adds scaleway_all + views)
 python scaleway.py --zones nl-ams-1     # price a different zone (all but fr-par-3 are equal)
-python scaleway.py --eur-usd 1.10       # pin the FX rate instead of the live ECB rate
+python scaleway.py --eur-usd 1.10       # override the fixed fx.py rate
 python scaleway.py --refresh            # re-download the cached type list + price catalog
 ```
 

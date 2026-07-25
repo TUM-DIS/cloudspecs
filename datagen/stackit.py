@@ -18,8 +18,9 @@ Both data sources are PUBLIC (no auth) -- STACKIT's simplest trait vs the other 
        local disk size, GPU model + memory, and the per-generation CPU microarchitecture
        (e.g. "Intel Ice Lake", "AMD EPYC Genoa", "ARM Ampere Altra").
 
-Prices are published in EUR; price_hour is converted to USD (to match the other three
-clouds) using the live ECB reference rate (public XML), overridable with --eur-usd.
+Prices are published in EUR; price_hour is converted to USD (to match the other clouds)
+using the fixed EUR_USD rate in fx.py, shared with the other EUR-priced builds and
+overridable with --eur-usd.
 
 Derived / static: family (flavor name minus the size suffix), category (from the
 variant letter / CPU:RAM ratio), physical cores (arm = 1 thread/core, x86 = 2),
@@ -56,6 +57,8 @@ import urllib.request
 import duckdb
 from bs4 import BeautifulSoup
 
+from fx import EUR_USD
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 DEFAULT_REGION = "eu01"  # STACKIT's primary German region; change with --region
@@ -68,10 +71,6 @@ PRICE_SNAPSHOT = os.path.join(HERE, "stackit-prices.json")  # offline fallback (
 # Machine-types docs -- the only source for local disk, GPU model and CPU microarch.
 DOCS_URL = ("https://docs.stackit.cloud/products/compute-engine/server/"
             "basics/machine-types/")
-
-# Live EUR->USD reference rate (public ECB XML), so price_hour matches the USD clouds.
-ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
-FALLBACK_EUR_USD = 1.14  # ~mid-2026; used only if ECB is unreachable (or via --eur-usd)
 
 WORK = os.path.join(HERE, "work", "stackit")
 
@@ -130,25 +129,6 @@ def _cached(name, url, refresh):
         f.write(text)
     time.sleep(0.15)
     return text
-
-
-# --------------------------------------------------------------------------- #
-# EUR -> USD
-# --------------------------------------------------------------------------- #
-def eur_to_usd(explicit):
-    """Return (rate, source). Explicit --eur-usd wins; else the live ECB reference
-    rate; else the hard-coded fallback (never fails the build)."""
-    if explicit:
-        return explicit, "--eur-usd"
-    try:
-        xml = _get(ECB_URL, timeout=20)
-        m = re.search(r"currency=['\"]USD['\"]\s+rate=['\"]([0-9.]+)['\"]", xml)
-        d = re.search(r"time=['\"]([0-9-]+)['\"]", xml)
-        if m:
-            return float(m.group(1)), f"ECB {d.group(1) if d else 'daily'}"
-    except Exception as e:
-        print(f"  WARNING: ECB rate unavailable ({e}); using fallback {FALLBACK_EUR_USD}")
-    return FALLBACK_EUR_USD, "fallback"
 
 
 # --------------------------------------------------------------------------- #
@@ -389,7 +369,7 @@ create view stackit_accel as
 create view stackit_shared as
   select * from stackit_all where family in ({burst});
 COMMENT ON COLUMN stackit_all.instance IS 'STACKIT flavor name (e.g. c2i.4)';
-COMMENT ON COLUMN stackit_all.price_hour IS 'eu01 on-demand price per hour in USD (converted from the EUR price list at the ECB reference rate)';
+COMMENT ON COLUMN stackit_all.price_hour IS 'eu01 on-demand price per hour in USD (converted from the EUR price list at the fixed rate in fx.py)';
 COMMENT ON COLUMN stackit_all.family IS 'Flavor family: flavor name minus the size suffix (c2i.4 -> c2i, n1.14d.g1 -> n1)';
 COMMENT ON COLUMN stackit_all.category IS 'Category from the variant letter / CPU:RAM ratio (General purpose, Compute optimized, Memory optimized, GPU)';
 COMMENT ON COLUMN stackit_all.ram_gib IS 'Amount of main memory in GiB';
@@ -446,14 +426,14 @@ def main():
                     help="DuckDB file to write the stackit_all table + views into")
     ap.add_argument("--region", default=DEFAULT_REGION,
                     help="single region to price (default eu01)")
-    ap.add_argument("--eur-usd", type=float, default=None,
-                    help="EUR->USD rate (default: live ECB reference rate)")
+    ap.add_argument("--eur-usd", type=float, default=EUR_USD,
+                    help=f"EUR->USD rate (default: the fixed {EUR_USD} from fx.py)")
     ap.add_argument("--refresh", action="store_true",
                     help="re-download the cached price list + docs page")
     args = ap.parse_args()
 
-    rate, src = eur_to_usd(args.eur_usd)
-    print(f"EUR->USD = {rate} ({src})")
+    rate = args.eur_usd
+    print(f"EUR->USD = {rate}" + ("" if rate == EUR_USD else " (--eur-usd override)"))
 
     flavors = fetch_prices(args.region, args.refresh)
     cpu_by_fam, gpu_by_fam, disk_by_flavor = parse_docs(args.refresh)

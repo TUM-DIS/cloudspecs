@@ -19,11 +19,12 @@ TWO public sources, no auth:
      shared or dedicated, the commercial range and the GA/retired status.
 
 Prices are published in EUR; price_hour is converted to USD (to match the other clouds) at
-the live ECB reference rate, overridable with --eur-usd. The catalog price wins where a
-type is listed there; the ~30 mid-sized types the catalog does not carry yet fall back to
-the Instance API's `hourly_price` (the two agree on every other current type). Prices are
-uniform across Scaleway's zones except fr-par-3 (~+50%), so the Paris reference below is
-also the low-price reference: fr-par-1, plus fr-par-2 for the GPU types only offered there.
+the fixed EUR_USD rate in fx.py, shared with the other EUR-priced builds and overridable
+with --eur-usd. The catalog price wins where a type is listed there; the ~30 mid-sized
+types the catalog does not carry yet fall back to the Instance API's `hourly_price` (the
+two agree on every other current type). Prices are uniform across Scaleway's zones except
+fr-par-3 (~+50%), so the Paris reference below is also the low-price reference: fr-par-1,
+plus fr-par-2 for the GPU types only offered there.
 
 Derived / static: family (type name minus its size suffix), category (from the commercial
 range, split into the usual compute/memory buckets), cores (physical, inferred from SMT)
@@ -65,6 +66,8 @@ import urllib.request
 
 import duckdb
 
+from fx import EUR_USD
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 INSTANCE_URL = ("https://api.scaleway.com/instance/v1/zones/{zone}/products/servers"
@@ -74,9 +77,6 @@ CATALOG_URL = ("https://api.scaleway.com/product-catalog/v2alpha1/public-catalog
 # Paris reference: fr-par-1 carries every range but the newest GPUs, fr-par-2 adds those.
 # Prices are identical in both (and in nl-ams-*/pl-waw-*); only fr-par-3 costs ~50% more.
 DEFAULT_ZONES = "fr-par-1,fr-par-2"
-
-ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
-FALLBACK_EUR_USD = 1.14    # ~mid-2026; used only if ECB is unreachable (or via --eur-usd)
 
 WORK = os.path.join(HERE, "work", "scaleway")
 
@@ -160,24 +160,6 @@ def _cached(name, url, refresh):
         f.write(text)
     time.sleep(0.15)
     return text
-
-
-# --------------------------------------------------------------------------- #
-# EUR -> USD
-# --------------------------------------------------------------------------- #
-def eur_to_usd(explicit):
-    """(rate, source). Explicit --eur-usd wins; else the live ECB rate; else fallback."""
-    if explicit:
-        return explicit, "--eur-usd"
-    try:
-        xml = _get(ECB_URL, timeout=20)
-        m = re.search(r"currency=['\"]USD['\"]\s+rate=['\"]([0-9.]+)['\"]", xml)
-        d = re.search(r"time=['\"]([0-9-]+)['\"]", xml)
-        if m:
-            return float(m.group(1)), f"ECB {d.group(1) if d else 'daily'}"
-    except Exception as e:
-        print(f"  WARNING: ECB rate unavailable ({e}); using fallback {FALLBACK_EUR_USD}")
-    return FALLBACK_EUR_USD, "fallback"
 
 
 # --------------------------------------------------------------------------- #
@@ -461,7 +443,7 @@ create view scaleway_accel as
 create view scaleway_shared as
   select * from scaleway_all where family in ({burst});
 COMMENT ON COLUMN scaleway_all.instance IS 'Scaleway Instance type name (e.g. POP2-8C-32G)';
-COMMENT ON COLUMN scaleway_all.price_hour IS 'Paris-reference (fr-par-1/2) Linux hourly on-demand price in USD, compute only -- volumes and the flexible IPv4 are billed separately (converted from EUR at the ECB reference rate)';
+COMMENT ON COLUMN scaleway_all.price_hour IS 'Paris-reference (fr-par-1/2) Linux hourly on-demand price in USD, compute only -- volumes and the flexible IPv4 are billed separately (converted from EUR at the fixed rate in fx.py)';
 COMMENT ON COLUMN scaleway_all.family IS 'Type family: type name minus its size suffix (POP2-HC-8C-16G -> POP2-HC, DEV1-S -> DEV1, H100-SXM-2-80G -> H100-SXM)';
 COMMENT ON COLUMN scaleway_all.category IS 'Category from the commercial range (General purpose, Compute optimized, Memory optimized, Network optimized, GPU); Scaleway''s "Specialized" range is split into the compute/memory/network buckets';
 COMMENT ON COLUMN scaleway_all.ram_gib IS 'Amount of main memory in GiB';
@@ -521,15 +503,15 @@ def main():
                     help="comma-separated availability zones to price, first match wins "
                          "(default fr-par-1,fr-par-2; every zone but fr-par-3 has the "
                          "same prices)")
-    ap.add_argument("--eur-usd", type=float, default=None,
-                    help="EUR->USD rate (default: live ECB reference rate)")
+    ap.add_argument("--eur-usd", type=float, default=EUR_USD,
+                    help=f"EUR->USD rate (default: the fixed {EUR_USD} from fx.py)")
     ap.add_argument("--refresh", action="store_true",
                     help="re-download the cached type list + price catalog")
     args = ap.parse_args()
 
     zones = [z.strip() for z in args.zones.split(",") if z.strip()]
-    rate, src = eur_to_usd(args.eur_usd)
-    print(f"EUR->USD = {rate} ({src})")
+    rate = args.eur_usd
+    print(f"EUR->USD = {rate}" + ("" if rate == EUR_USD else " (--eur-usd override)"))
 
     types = fetch_types(zones, args.refresh)
     catalog = fetch_catalog(zones, args.refresh)
